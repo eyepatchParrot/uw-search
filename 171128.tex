@@ -1,0 +1,481 @@
+\documentclass[twocolumn]{article}
+\usepackage{pgfplots}
+\usepackage{subfig}
+\usepackage{amsmath}
+\usepackage{verbatim}
+\usepgfplotslibrary{statistics}
+\usepgfplotslibrary{groupplots}
+\pgfplotsset{compat=1.13}
+
+  \title{Fast Search on Small, Uniformly Distributed Arrays}
+  \date{\today}
+  \author{Peter Van Sandt \and Jignesh Patel}
+
+\begin{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\pgfplotsset{select coords between index/.style 2 args={
+		x filter/.code={
+			\ifnum\coordindex<#1\def\pgfmathresult{}\fi
+			\ifnum\coordindex>#2\def\pgfmathresult{}\fi
+		}
+	}}
+
+  \onecolumn
+\maketitle
+\begin{center}
+University of Wisconsin-Madison \\
+\{van-sandt, jignesh\}@cs.wisc.edu
+\end{center}
+
+\begin{center}
+\textbf{Abstract}
+\end{center}
+
+In this report, we demonstrate interpolation search can be much more effective than binary search on a uniformly distributed dataset. We provide techniques that can be applied to either search algorithm to increase performance. Then, we provide justification for why these techniques work, and we guide the decision between binary and interpolation search with metrics that predict the performance of interpolation search.
+
+We compare the performance of binary and interpolation search across several dataset sizes, and we give a adaptive variation of interpolation search that outperforms binary search. We also give an optimized version of interpolation-sequential search that outperforms binary search by 2.3x on small arrays. Finally, we demonstrate that these algorithms and techniques maintain their effectiveness when many threads thrash the caches with concurrent searches.
+
+\twocolumn
+\section{Introduction}
+\label{introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Search is a well-studied problem, but the application of a few optimization techniques can exploit modern hardware for significant performance gain. We seek to understand how modern hardware has changed which algorithms are best, and how to implement these algorithms to maximize performance. The benefits of the lower asymptotic complexity of interpolation search relative to binary search has been well studied in the context of data sets that require going to external memory, but is considered too costly for in-memory searches. \cite{manolopoulos-kollias-burton} Interactive data visualization platforms have made in-memory workloads increasingly important, and they call for a re-evaluation of the performance of interpolation search on in-memory datasets in the context of modern processors.
+
+Modern processors now support the execution of multiple operations per cycle, instruction-level parallelism (ILP), and they have reduced the cost of multiplication, floating point operations, and reading from cache. This change in platform suggest it's time to revisit which search algorithms result in lowest running time. Compilers are capable of a great deal of optimization techniques, but they can't change the behavior of your algorithm, and they are limited if your does structure doesn't encourage compiler optimizations. We focus on techniques such as adding loop prologues which change the algorithm and re-structuring code to encourage lower-level compiler optimizations like loop unrolling.
+
+We consider three primary ways to improve search: reduce the number of probes, reduce the cost of each iteration, and increase the number of simultaneously overlapping iterations. Interpolation search is advantageous over binary search because it reduces the number of probes. We reduce the cost of each iteration by considering unsafe math, eliminating checks for equality and exit conditions, loop prologues, and the use of lookup tables. We overlap more iterations by converting while loops to indexed for loops and by integrating linear search into more efficient algorithms.
+
+We use Compiler Explorer to analyze how C++ source code turns into assembly code, and we use the Intel Architecture Code Analyzer to understand how that assembly code interacts with our target Haswell architecture.
+
+Binary search is the defacto fastest method for searching a sorted array. In every iteration, it reduces the remaining interval that could contain the target by half. We introduce $b-lr$ in figure \ref{b-lr-code} which tracks this interval with the leftmost and rightmost indexes. In $b-sz$, see figure \ref{b-sz-code}, we track this interval with the leftmost index and the remaining size of the interval. Many of the optimizations we consider apply more generally, but we do not find a clear best way to track this interval, and each technique interacts with the tracking of this interval in subtly different ways. 
+
+Interpolation search approximates the expected position of the target by interpolating between the leftmost and rightmost elements. This assumes a linear relationship between the values of the sorted array and their positions as is the case when we choose the values uniformly at random. Because interpolation search uses more expensive arithmetic to reduce the number of probes, (key comparisons) it is traditionally considered in the context of searching ordered files where arithmetic overhead is less significant relative to the overhead of file IO.
+
+Our primary concern is with minimizing runtime, whether through constant factors or by increasing algorithmic efficiency. Perl, Itai, and Avni \cite{perl-itai-avni} show that interpolation search will take $O(\log \log N)$ probes on a uniformly distributed keys with high probability. Gonnet and Rogers \cite{gonnet-rogers} give an analysis of an interpolation-sequential search that uses a single interpolation to guide a subsequent linear search. They show that the expected number of probes is $O(\sqrt N)$. The asymptotic analysis of binary search at $O(\log N)$ lies in between these two bounds and each iteration is relatively in expensive.
+
+\begin{figure}[ht]
+\begin{verbatim}
+def b-lr(x, A):
+  left = 0
+  right = len(A)
+  while right > left:
+    mid = left + (right-left) / 2
+    if A[mid] < x:
+      left = mid + 1
+    elif A[mid] > x:
+      right = mid 
+    else:
+      return A[mid]
+  return A[left]
+\end{verbatim}
+\caption{b-lr}
+  \label{b-lr-code}
+\end{figure}
+
+\begin{figure}[ht]
+\begin{verbatim}
+def b-sz(x, A):
+  left = 0
+  n = len(A)
+  while n > 1:
+    half = n / 2
+    if A[left + half] > x:
+      n = half
+    elif A[left + half] < x:
+      left = left + half + 1
+      n = n - half - 1
+    else:
+      return A[left + half]
+  return A[left]
+\end{verbatim}
+\caption{b-sz}
+  \label{b-sz-code}
+\end{figure}
+
+\begin{figure}[ht]
+\begin{verbatim}
+def i(x, A):
+  left = 0
+  right = len(A) - 1
+  while left < right:
+    width_range = (right - left) /
+      (A[right] - A[left])
+    mid = left = (x - A[left]) *
+      width_range
+    if A[mid] < x:
+      left = mid + 1
+    elif x < A[mid]:
+      right = mid - 1
+    else
+      return A[mid]
+  return A[left]
+\end{verbatim}
+\caption{i}
+  \label{i-code}
+\end{figure}
+
+\section{Testing Methodology}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Each dataset is populated with random 8 byte integers and sorted. Each dataset is generated from a uniform distribution using randomly chose seeds to represent the ideal case for an interpolation search and to reveal the dependence of interpolation search on data distribution. We fix the search ordering by searching for every element in a random permuation of the dataset to reduce the impact of branch prediction at without much overhead. Each measurement records the total time to search for every element in the dataset because the typical search in an array of 1,000 elements is fast enough that the operation of collecting each sample represents a significant overhead. Additionally, we have to be careful to ensure that the number of measurements is small relative to the size of the array to avoid filling the cache that the search algorithms use with our measurements.
+
+We concatenate all samples for a given algorithm and report the median and the upper and lower quartile values. Most of the variation in the average search time is because the execution of interpolation search relies upon the distribution of the dataset. Some is also because interpolation-sequential search relies more heavily on an ILP-dependent linear search which is more sensitive to hardware variation.
+
+All benchmarks were compiled using clang 5.0.1 on maximum optimization settings including unsafe floating point math, and run on an i5-4570 CPU at 3.2Ghz with 32K L1 data and instruction caches, 256K L2 cache, and 6144K L3 cache. 
+
+
+\section{Optimizations}
+
+\begin{figure}[t]
+	\begin{tikzpicture}
+	\begin{axis}[
+	small,
+	width=\columnwidth,
+	height=\textheight / 4,
+	nodes near coords,
+	nodes near coords align={vertical},
+	enlarge y limits={.2},
+	xtick=data,
+	xticklabel style={rotate=90, font=\boldmath},
+	xlabel near ticks,
+	ybar,
+	title={$b-lr$ Optimizations Summary},
+	xlabel=Variation,
+	ylabel={Normalized Improvement},
+	xticklabels from table={b-lr-improve.dat}{alg}
+	]
+	\addplot plot [error bars/.cd, y dir=both, y explicit] table[x expr=\coordindex, y=median, y error plus=plus25, y error minus=minus25] {b-lr-improve.dat};
+	\end{axis}
+	\end{tikzpicture}
+  \label{b-lr}
+\end{figure} 
+
+\begin{figure}[t]
+	\begin{tikzpicture}
+	\begin{axis}[
+	small,
+	width=\columnwidth,
+	height=\textheight / 4,
+	nodes near coords,
+	nodes near coords align={vertical},
+	enlarge y limits={.2},
+	xtick=data,
+	xticklabel style={rotate=90, font=\boldmath},
+	xlabel near ticks,
+	ybar,
+	title={$b-sz$ Optimizations Summary},
+	xlabel=Variation,
+	ylabel={Normalized Improvement},
+	xticklabels from table={b-sz-improve.dat}{alg}
+	]
+	\addplot plot [error bars/.cd, y dir=both, y explicit] table[x expr=\coordindex, y=median, y error plus=plus25, y error minus=minus25] {b-sz-improve.dat};
+	\end{axis}
+	\end{tikzpicture}
+  \label{b-sz}
+\end{figure} 
+
+\begin{figure}[t]
+	\begin{tikzpicture}
+	\begin{axis}[
+	small,
+	width=\columnwidth,
+	height=\textheight / 4,
+	nodes near coords,
+	nodes near coords align={vertical},
+	enlarge y limits={.2},
+	xtick=data,
+	xticklabel style={rotate=90, font=\boldmath},
+	xlabel near ticks,
+	ybar,
+	title={Interpolation Optimizations Summary},
+	xlabel=Variation,
+	ylabel={Normalized Improvement},
+	xticklabels from table={i-improve.dat}{alg}
+	]
+	\addplot plot [error bars/.cd, y dir=both, y explicit] table[x expr=\coordindex, y=median, y error plus=plus25, y error minus=minus25] {i-improve.dat};
+	\end{axis}
+	\end{tikzpicture}
+  \label{i}
+\end{figure}
+
+\subsection{Use One Exit}
+\label{exit}
+$b-lr$ returns as soon as it discovers that the probe hit the target. Because it jumps out of the loop at that point rather than at the exit condition, we have an additional compare and branch in the body of the loop. We introduce $b-lr-cond$ which, instead, sets the exit condition to force the loop to exit on the next iteration. This reduces the number of exits from two to one and the compiler re-structures the loop to be of branches rather than conditional moves. It also enhances future modifications by simplifying the structure of the loop. $b-sz-cond$ uses a similar modification, but clang has already found the desired simplifications in $b-sz$.
+
+\subsection{Overflow Math}
+\label{overflow}
+If we calculate the midpoint for $b-lr$ by choosing $mid = \frac{left+right}{2}$, we risk overflow which Khuong notes as unsafe. \cite{pvk-search-retro} While the formula given in figure \ref{b-lr-code} will never overflow for any representable value of $n$, it is more expensive. We introduce $b-lr-over$ which uses the cheaper formula and risks overflow to calculate the midpoint, but we show that overflow is possible only for exceptionally large arrays. This saves a subtraction and re-locates a move instruction out of the critical path, which is not a large improvement on its won, but the simplified loop body supports future optimizations.
+
+Let $max$ be the maximum value. Overflow is defined by \eqref{overflow:1}. By the definition of binary search, we can bound $left$ and $right$ by $n$ in \eqref{overflow:2}. We maximize the sum of $left$ and $right$ in \eqref{overflow:3}. For this choice of $left$ and $right$, we can see by \eqref{overflow:1} and \eqref{overflow:3} that $n$ overflows only if \eqref{overflow:4} holds. Because $left$ and $right$ are maximized, this is the minimum value of $n$ where overflow can occur. In \eqref{overflow:5} we have the representable values for which the equation used in $b-lr-over$ can overflow. We simplify to \eqref{overflow:6} by assuming 64-bit integer arithmetic. Because $N < 2^{63}$ covers most use cases, we believe this pre-condition is reasonable.
+
+\begin{align}
+left + right \geq 1 + max \label{overflow:1}
+\\ left < right \leq n \label{overflow:2}
+\\ left + 1 = right = n \label{overflow:3}
+\\ n \geq 1 + \frac{1}{2}max \label{overflow:4}
+\\ \frac{1}{2}max < n < 1 + max \label{overflow:5}
+\\ 2^{63} < n < 2^{64} \label{overflow:6}
+\end{align}
+
+\subsection{Don't Test Equality}
+\label{noeq}
+Because $b-lr-over$ doesn't return early, it is already implemented solely in terms of conditional moves. We introduce $b-lr-noeq$ and $b-sz-noeq$ which eliminate equality checks, reducing the number of conditional moves and saving an increment. This accelerates the body of the loop at the expense of requiring additional iterations. This optimization alone results in a worse running time, but the combination of this code simplification and additional structure with the for loop optimization yields an improvement for $b-lr-noeq-for$ which appears in \S\ref{for}.
+
+Without an equality test, the size of the range decreases $\lfloor \frac{1}{2}n \rfloor$ regardless of the result of the probe, so it can be executed speculatively, effectively eliminating it from the critical path. Eliminating the equality test also makes the number of iterations constant, supporting more efficient loop unrolling. Each iteration of interpolation search is more expensive and is less parallelizable than binary search, so a slightly cheaper loop body does not make up for the additional iterations and arithmetic required.
+
+$b-sz$ and $b-sz-cond$ are faster than the first few variations of binary search that eliminate equality checks because clang was able to unroll their loops. We will eventually be able to achieve similar optimizations with variations that don't check for equality and use further optimization to surpass their performance.
+
+This optimization has a surprising dependence on the overflow math optimization. Three conditional moves are needed if the overflow math optimization is applied without removing equality checks or if the equality check is removed without using the overflow math optimization. Only by combining the two do we save the conditional move, which still works out to be worse than checking for equality, but supports future optimizations by simplifying the loop body. Whether conditional moves give better or worse performance than simple branches depends on the context and how much ILP is available. Carruth \cite{carruth} describes some of the advantages and disadvantages of conditional moves over branches. Without going into too much detail, conditional moves require flushing the pipeline, but branches risk losing cycles to misprediction.
+
+\subsection{Unroll with For Loops}
+\label{for}
+Binary search will take no more than $log_2 N$ iterations, which can be pre-computed to bound an indexed for loop. We introduce $b-lr-for$, $b-lr-noeq-for$, $b-sz-for$, and $b-sz-noeq-for$ which terminate after $log_2 N$ iterations instead of checking the size of the remaining interval directly. Clang doesn't apply run-time loop unrolling on the while loop even though the number of remaining iterations is determinable from the distance. It does, however, apply unrolling to the indexed for loop, which, in combination with the previous loop body optimizations, increase the number of simultaneously in-progress iterations. We only test the variation that loops based on the pre-computed logarithm, and do not try to manually unroll the while loop ourselves.
+
+Note that this optimization gets much of its benefit from interacting with other optimizations. $b-lr-for$ and $b-lr-noeq$ are worse than $b-lr-cond$ when taken individually. However, when these two are combined, $b-lr-noeq-for$ is fastest. Additionally, if multiple exit points aren't avoided and there is an early return in the body of the loop, then the compiler doesn't unroll the loop, and the resulting performance is worse than not using the for loop at all.
+
+To benefit from loop unrolling, you must ensure that the number of iterations performed exceeds the unroll factor. We found that a more complicated midpoint calculation performed better than a simple one when the binary search required fewer iterations, and it performed better when binary search required more iterations. We discovered this was because the simpler loop was unrolled more times than the complex version, so shorter searches could only benefit from unrolling with the complicated loop. The fastest loop had the body of the simpler loop and the unroll factor of the complicated one.
+
+\subsection{Precomputation}
+\label{precomputation}
+Precomputation is done in binary search by calculating the maximum number of iterations until the target is found, which we discuss in section \ref{for}. We introduce $i-precompute$, a variation of interpolation search which pre-computes the slope of the first interpolation. Since the next interpolation calculation depends on the result of the previous, starting to load the interpolation value sooner reduces the latency of the critical path through the search. This application of precomputation replaces 3 loads and a division with a single load and multiplication, reducing the non-parallelizable part of the function.
+
+\subsection{Loop Prologues}
+\label{prologues}
+We believe that it is common for the first or last iterations of a loop to require additional work or checks that aren't required in later iterations of the loop. $b-sz$ as stated does not appear to have this form, but every iteration requires rounding up the size of the remaining interval. We introduce $b-sz-pow$ which reduces the interval to a power of two in the first iteration. See figure \ref{b-sz-pow} for an example of how we do this. Once we have established that the target is contained within an interval with a size that's a power of two, we do not need to do any more ceiling functions, which saves a subtraction in the critical path.
+
+Later, we will use linear search as a base case and in an interpolation-sequential search. We also optimized an SIMD-accelerated (Single Instrution, Multiple Data instructions process many elements with a single instruction.) linear search with a loop prologue that allowed the body to use aligned load instructions. Aligned load instructions, which will fault if the address isn't aligned, are dramatically faster than unaligned load instructions. Since an interpolation can happen at an arbitrary address, alignment isn't guaranteed. However, if you use a prologue of a standard, unrolled, linear search that covers the width of the needed alignemnt, then you know that a linear search that starts at the first aligned position after the interpolation will not miss any elements. Because scalar instructions have lower overhead, if the target is located within the range of the prologue, then it will return the result more quickly than it would a variation that uses unaligned vector instructions for the same task.
+
+\begin{figure}[ht]
+\begin{verbatim}
+def b-sz-pow(x, A):
+  left = 0
+  n = len(A)
+  mid = n - 2**(ceil_lg_n - 1)
+  left = mid if A[mid] <= x else left
+  n -= mid
+  for i in range(1, ceil_lg_n):
+    n /= 2
+    left = left + n if A[left + n] <= x
+      else left
+  return A[left]
+\end{verbatim}
+\caption{b-sz-pow}
+  \label{b-sz-pow}
+\end{figure}
+
+\subsection{Linear Search Base Case}
+\label{linear}
+% TODO
+Linear search trades asymptotic efficiency for the ability to probe multiple elements per cycle. We used IACA to compare the throughput of our unrolled linear search and $b-sz-pow$. We found that the unrolled linear search probes two elements every cycle at full throughput, while the optimized binary search probed one element every other cycle. This is before accounting for branch mispredictions which are guaranteed to be common with binary search and uncommon with linear search. Binary search can't reliably execute its loads speculatively because which element to load depends on the previous comparison, so it is unlikely to be able to correctly schedule very many loads in advance. Linear search, however, will always load the next element in the array, so it will effectively hide much of the memory latency.
+
+Small arrays are more limited by the delay between probes than they are by asymptotic efficiency, which makes the linear search superior to binary search on sufficiently small sizes because it can execute more iterations in the same amount of time despite lower efficiency. This difference is even more dramatic for interpolation search, where each iteration is more expensive.
+
+We introduce $b-lr-lin$ and $b-sz-lin$ which use linear search as a base case for binary search. We use a binary search to reduce the remaining interval to 32 elements. Then, we use the middle element of the remaining interval to do a linear search in the direction of the target element from there. We introduce $i-guard$ a variation of $i-precompute$ which adapts its recursion depth by the effectiveness of the last recursion. Effectiveness is measured by the distance of each interpolation from the boundaries of the remaining interval. When $i-guard$ determines that its interpolations are ineffective, it terminates with a linear search to increase the number of concurrent probes. All other interpolation searches use a similar mechanism, but they break to linear search only when interpolating to the outermost element.
+
+Finally, we introduce $i-seq-fp$ as a different way to exploit linear search as a base case. Gonnet and Rogers \cite{gonnet-rogers} give an analysis of interpolation-sequential search which does a single interpolation followed by a linear search in the direction of the target. This algorithm can be combined with pre-computation to completely elide the expensive operations involved in interpolation requiring, instead, only a subtraction and a multiplication. This is the most significant impact of the pre-computation optimization. Our intuition behind interpolation-sequential search is that the target key is likeliest to be nearby the interpolation and a linear search exploits this locality more effectively than a binary search or futher interpolations.
+
+I experimented with accelerating optimized variations of linear search and jump search \cite{jump-search} with SIMD instructions. An interpolation-sequential search that uses a SIMD-accelerated jump search offers very favorable performance on mid-ranged arrays, but I found no variation of binary or interpolation search that uses these SIMD-accelerated search algorithms to be universally superior to those that used an unrolled for loop.
+
+\subsection{Lookup Table Division}
+\label{lut}
+Lookup table division is a form of precomputation that sacrifices accuracy to reduce the numer of conversions to and from floating point, and it trades floating-point operations for integer shifts, subtractions, and table lookups. Recursive interpolation search relies upon a large number of dependent divisions. Because the linear interpolation is itself not accurate with respect to positions within the array, we are willing to forgo some accuracy in the divisions themselves to make each division faster.  Most of the accuracy of a division comes from its most significant bits and its magnitude, so we build a small table of magic constants which allow us to approximate division by a lookup and a multiplication. The first division has known operands, so it can be approximated by only one multiplication operation. We introduce $i-lut$ and $i-seq$, which are variations that replace the floating-point division of their counterparts $i-precompute$ and $i-seq-fp$ respectively with lookup table division.
+
+We base our method off of the method that compilers use to replace integer division, but we reduce accuracy to increase performance. Granlund and Montgomery \cite{granlund-montgomery} provide the method and its analysis. Ridiculousfish \cite{fish} explains the concept with intuition for why it works. To approximate division, we first reduce the divisor into the range of the lookup table, then multiply by the magic constant and return the high word. The bulk of the work in the approximate division is in the simple operations for reducing the range of the divisor and the lookup into the table. On smaller arrays, the floating point conversions are more costly than the loss in precision, but the opposite is true for larger arrays.
+
+\setlength{\tabcolsep}{5pt}
+\begin{figure}[ht]
+  \caption{Summary of Variation and Optimizations}
+\begin{tabular}{l*{9}c}
+  Variation & \S & X & M & Q & F & C & P & L & T \\
+	\hline
+  b-lr & \ref{introduction} \\
+  b-lr-cond & \ref{exit} & y \\
+  b-lr-over & \ref{overflow} & y & y \\
+  b-lr-noeq & \ref{noeq} & y & y & y \\
+  b-lr-for & \ref{for} & y & y & & y & y \\
+  b-lr-noeq-for & \ref{for} & y & y & y & y & y \\
+  b-lr-lin & \ref{linear} & y & y & y & y & y & & y & \\
+
+  b-sz & \ref{introduction} \\
+  b-sz-cond & \ref{exit} & y \\
+  b-sz-noeq & \ref{noeq} & y & y & y \\
+  b-sz-for & \ref{for} & y & y & & y & y \\
+  b-sz-noeq-for & \ref{for} & y & y & y & y & y \\
+  b-sz-pow & \ref{prologues} & y & y & y & y & y & y \\
+  b-sz-lin & \ref{linear} & y & y & y & y & y & y & y & \\
+	
+  i & \ref{introduction} \\
+  i-precompute & \ref{precomputation} & & & & & y \\
+  i-lut        & \ref{lut} & & & & & y & & & y \\
+  i-seq-fp     & \ref{linear} & & & & & y & y & y \\
+  i-seq        & \ref{lut} & & & & & y & y & y & y \\
+  i-guard     & \ref{linear} & & & & & y & y & y \\
+\end{tabular}
+  \caption{one eXit, overflow Math, don't check eQuality, indexed For loops, preComputation, Prologue, Linear search, lookup Table division}
+  \label{table}
+\end{figure}
+
+Some variations discussed build on others. Some try different combinations of optimizations. The table in figure \ref{table} summarizes each variant and the optimizations involved. We summarize the improvement of each optimization over the naive implemention in figures \ref{b-lr-code}, \ref{b-sz-code}, and \ref{i-code}. The compiler was more successful in optimizing the naive version of $b-sz$, so it shows less improvement.
+
+\section{Predictors of Interpolation Performance}
+\begin{figure}[t]
+	\begin{tikzpicture}
+	\begin{axis}[
+		ybar,
+		ymin=0,
+	title={Interpolation Error},
+	xlabel={Distance},
+	ylabel={Count}
+	]
+	\addplot +[
+	hist={
+		cumulative,
+		density,
+		bins=10
+	}] table [y index=0] {cdf.dat};
+	\end{axis}
+	\end{tikzpicture}
+\end{figure} \label{cdf}
+
+The performance of interpolation search depends upon the distribution of the values in the array. On the arrays that we have filled with numbers chosen uniformly at random, interpolation search performs much better than binary search. We define error to be the distance from the index where a given element interpolates to and its true position. We represent how closely an interpolation represents a typical array that fits the target distribution in figure \ref{cdf} using the CDF of the thousand element dataset that where $i-lin$ had median performance. It shows that most elements are very close to the interpolation but that the tail is long.
+
+We suggest that metrics which most strongly predict the performance interpolation search are useful to guide when interpolation search will out-perform binary search. So, if we can determine which characteristics of a dataset most strongly predict the performance of interpolation search on that dataset, that information might be used to decide which kind of search to use. In figure \ref{predict}, we consider the ninetieth percentile, maximum, and mean absolute error. We show that the $R^2$ value of a line of best fit isn't very predictive. Although interpolation performs best when a dataset is best approximated by a line, it operates using a very particular line, which the error based metrics predict more accurately. Finally, we can consider smoothness as used by Demaine, Jones, and Patrascu to build a search tree that generalizes interpolation search. \cite{demaine-jones-patrascu} In figure \ref{l1}, we show the raw values for the mean absolute error, the best predictor. We hypothesize that a low mean absolute distance suggests that interpolation search may be a good choice, whereas a higher value suggests that a binary search may be preferable.
+
+
+\begin{figure}[t]
+	\begin{tikzpicture}
+	\begin{axis}[
+	xtick=data,
+	title={Metric Prediction of Performance},
+	xlabel=Metric,ylabel={$R^2$},
+	xticklabels from table={predict.dat}{metric},
+	ybar
+	]
+	\addplot table[x expr=\coordindex, y=r2] {predict.dat};
+	\end{axis}
+	\end{tikzpicture}
+\end{figure} \label{predict}
+
+\begin{figure}[t]
+	\begin{tikzpicture}
+	\begin{axis}[
+	title={Best Predictor of Performance},
+    ylabel={Average Search Time (ns)},
+    xlabel={Mean Absolute Average Error}
+	]
+	\addplot table[only marks, x=l1, y=ns] {metrics.dat};
+	\end{axis}
+	\end{tikzpicture}
+\end{figure} \label{l1}
+
+\section{Binary vs Interpolation Search}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Our adaptive interpolation search, $i-guard$, out-performs binary search on all measured datasets, and its asymptotic superiority causes this advantage to increase with the size of the dataset. On the smallest datasets, a interpolation-sequential search out-performs all other meausured algorithms, but it is hindered by its $O(\sqrt N)$ asymptotic complexity as the dataset grows. $b-sz-lin$ is the clear winner for binary search, out-performing all other variants on all array sizes, but each interpolation algorithm gives tradeoffs for different dataset sizes. $i-guard$ scales the best and is asymptotically superior, but it is not significantly better than binary search on the smallest sizes. If you need the best performance on a small-sized array, $i-seq$ is unmatched. For best results, interpolation search requires you to understand your data distribution and how large it is to achieve the best results, but on the right dataset, interpolation search is faster than binary search for any variation you choose.
+
+\begin{figure}[t]
+	\begin{tikzpicture}
+	\begin{axis}[
+	xtick=data,
+	enlarge x limits={.2},
+	legend pos=north west,
+	title={Scaling with Dataset Size},
+	xticklabels from table={szs-ns.dat}{sz},
+	xlabel={Dataset Size},ylabel={Average Search Time (ns)},
+	ybar
+	]
+	\addplot plot table[x expr=\coordindex, y=i-guard] {szs-ns.dat};
+	\addlegendentry{$i-guard$}
+	\addplot plot table[x expr=\coordindex, y=i-seq] {szs-ns.dat};
+	\addlegendentry{$i-seq$}
+	\addplot plot table[x expr=\coordindex, y=b-sz-lin] {szs-ns.dat};
+	\addlegendentry{$b-sz-lin$}
+	\end{axis}
+	\end{tikzpicture}
+\end{figure} \label{sizes}
+
+\begin{figure}[t]
+	\begin{tikzpicture}
+	\begin{axis}[
+    xtick=data,
+    enlarge x limits={.2},
+    legend pos=south east,
+    ymin=0,
+    title={Binary vs Interpolation Search},
+    xticklabels from table={szs-ns-norm.dat}{sz},
+    xlabel={Dataset Size},ylabel={Average Search Time / $b-sz-lin$ Search Time},
+    ybar
+	]
+	\addplot plot table[x expr=\coordindex, y=i-guard] {szs-ns-norm.dat};
+	\addlegendentry{$i-guard$}
+	\addplot plot table[x expr=\coordindex, y=i-seq] {szs-ns-norm.dat};
+	\addlegendentry{$i-seq$}
+
+    \draw [black] ({rel axis cs:0,0}|-{axis cs:0,1}) -- ({rel axis cs:1,0}|-{axis cs:1,1}) node [pos=0.7, above] {$b-sz-lin$};
+    \addlegendimage{line legend, color=black}
+	\addlegendentry{$b-sz-lin$}
+	\end{axis}
+	\end{tikzpicture}
+\end{figure} \label{compare}
+
+\section{Threading}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+To determine if the number of concurrent threads impacts the performance, I initialize several threads to run the same search algorithm on the same permutation of data independently. Each thread records and stores its own samples. Finally, the results from each thread are concatenated together. For each configuration of threads, datasets, and algorithms, we record the change in median search time from its median search time with a single running thread. In this way, we observe the how multiple, simultaneously-running searches interact with each other.
+
+We consider $i-guard$, $i-seq$, and $b-sz-lin$ as in the evaluation across dataset sizes in section \ref{sizes}. We record the median performance of each algorithm on every dataset size and thread count, and normalize each algorithm's measurements against its single threaded performance. For each dataset size and thread count, we report the performance decrease of the algorithm that degraded most. 
+
+We show that with a pessimal choice of algorithm throughput does decrease, but that the effect is small. CPU throttling is an important consideration, when a CPU gets hot, it throttles the CPU frequency. This occurs more frequently when all cores are heavily used, so this may explain the slowdown we observe.
+
+Another explanation of the performance degradation observed is that the combined workset of all threads requires sharing the lower-level caches. The highest thread counts and the largest datasets record the most measurements and access the most data which may be a non-trivial amount of cache activity. These considerations may explain why the effect is strongest on the largest dataset which would rely more heavily upon the the larger, lower-level caches because of its larger dataset. Note that each thread searches using the same random permutation, which may thrash the cache less than concurrent and independent queries.
+
+\begin{figure}[t]
+	\begin{tikzpicture}
+	\begin{axis}[
+	yticklabel={\pgfmathprintnumber\tick\%},
+	bar width=6pt,
+	ybar,
+	width=\columnwidth,
+	xtick=data,
+	legend pos=north west,
+	enlarge x limits={.2},
+	title={Scaling with Threads},
+	xticklabels from table={szs-thds-diff.dat}{n_thds},
+    xlabel={Number of Threads},ylabel={Normalized Change in Performance}
+	]
+	\addplot plot table[x expr=\coordindex, y=1000] {szs-thds-diff.dat};
+	\addlegendentry{$N = 10^3$}
+	\addplot plot table[x expr=\coordindex, y=10000] {szs-thds-diff.dat};
+	\addlegendentry{$N = 10^4$}
+	\addplot plot table[x expr=\coordindex, y=100000] {szs-thds-diff.dat};
+	\addlegendentry{$N = 10^5$}
+	\addplot plot table[x expr=\coordindex, y=1000000] {szs-thds-diff.dat};
+	\addlegendentry{$N = 10^6$}
+	\end{axis}
+	\end{tikzpicture}
+\end{figure}
+
+\section{Conclusion}
+The ordering and combination of optimizations is such a significant factor in the effect and analysis of such optimizations that it made the presentation of these optimizations and the description of how they impact the program more challenging. For example in section \ref{noeq}, we described how the conditional move was saved only if both the overflow math was used and equality was not checked for. In the presented ordering, overflow math represents a relatively minor optimization, however, if overflow math had instead been presented later, several other optimizations would have been impacted and the different midpoint calculation would have appeared much more significant.
+
+We have demonstrated many general techniques for optimization through re-structuring your code, and we presented how they apply specifically to binary and interpolation search algorithms. We saw that in order to optimize our code, sometimes the intermediate steps actually worsened performance. This raises questions about the repeated advice to measure everything. While measurement certainly guided our process for optimizing these algorithms, measuring every incremental improvement can prevent you from escaping local maxima.
+
+We focused on interpolation search in its preferred uniform data distribution, but we also showed how to determine if interpolation search is a good fit for your dataset by showing that the $L_1$ norm was predictive. We showed that interpolation search could out-perform binary search across a variety of dataset sizes, but that choosing the best interpolation search is difficult. Finally, we showed that concurrent searches could be run simultaneously without significantly degrading performance.
+
+\onecolumn
+\begin{thebibliography}{1}
+  \bibitem{perl-itai-avni} Perl, Y., Itai, A., \& Avni, H. (1978). Interpolation search - a log log N search. Communications of the ACM, 21(7), 550-553.
+  \bibitem{gonnet-rogers} Gonnet, Gaston H., and Lawrence D. Rogers. "The interpolation-sequential search algorithm." Information Processing Letters 6.4 (1977): 136-139.
+\bibitem{pvk-search-retro} Khuong, Paul. https://www.pvk.ca/Blog/2015/11/29/retrospective-on-binary-search-and-on-compression-slash-compilation/
+\bibitem{pvk-binary-mispredictions} Khuong, Paul. pvk.ca/Blog/2012/07/03/binary-search-star-eliminates-star-branch-mispredictions/
+\bibitem{pvk-binary-cache} Khuong, Paul. https://www.pvk.ca/Blog/2012/07/30/binary-search-is-a-pathological-case-for-caches/
+\bibitem{jump-search} https://xlinux.nist.gov/dads/HTML/jumpsearch.html
+\bibitem{linear-binary-search} Mostly Software. https://schani.wordpress.com/2010/04/30/linear-vs-binary-search/
+\bibitem{carruth} Carruth, Chandler. Going Nowhere Faster. https://www.youtube.com/watch?v=2EWejmkKlxs
+\bibitem{fish} http://ridiculousfish.com/blog/posts/labor-of-division-episode-i.html
+\bibitem{demaine-jones-patrascu} E.D. Demaine, T.R. Jones, M. Patrascu Interpolation search for non-independent data SODA: ACM-SIAM Symposium on Discrete Algorithms (SODA), SIAM Press (2004), pp. 529-530
+\bibitem{granlund-montgomery} Granlund, T., \& Montgomery, P. L. (1994, August). Division by invariant integers using multiplication. In ACM SIGPLAN Notices (Vol. 29, No. 6, pp. 61-72). ACM.
+\bibitem{manolopoulos-kollias-burton} Manolopoulos, Y. P., Kollias, J. Y. G., \& Burton, F. W. (1987). Batched interpolation search. The Computer Journal, 30(6), 565-568.
+\end{thebibliography}
+
+\end{document}
