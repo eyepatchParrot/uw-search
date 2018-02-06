@@ -1,4 +1,4 @@
-#N_RUNS=10
+N_RUNS=10
 ifdef NSORT
 	DEFINES += -DNSORT
 endif
@@ -19,7 +19,7 @@ HEADERS=oracle.h interpolate.h benchmark.h bin.h lin.h util.h div.h
 OBJ=
 IACA=0
 
-N_INTS=1000
+N_INTS=1000000
 SEED=42
 
 N_THREADS=1
@@ -33,9 +33,8 @@ BENCHMARKS=i-guard i-seq b-sz-lin i-simd
 BENCHMARKS=fib
 BENCHMARKS=i i-precompute i-seq-fp i-seq-fp-intercept i-seq i-seq-intercept
 BENCHMARKS=i-seq-fp i-seq-fp-intercept i-seq-fp-pick i-seq
-#BENCHMARKS=i-guard i-guard i-guard i-slope
-#BENCHMARKS=b-lr b-lr-cond b-lr-over b-lr-noeq b-lr-for b-lr-noeq-for b-lr-lin
-#BENCHMARKS=b-sz b-sz-cond b-sz-noeq b-sz-for b-sz-noeq-for b-sz-pow b2 b-sz-lin
+BENCHMARKS=i-guard i-slope i-slope-lut
+#BENCHMARKS=i-slope
 RUN=./search $(N_INTS) $(SEED) $(N_THREADS) $(BENCHMARKS)
 
 .PHONY: run search debug d_lin lin splines

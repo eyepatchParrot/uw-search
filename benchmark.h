@@ -81,7 +81,13 @@ TestStats benchmark(
       auto t0 = std::chrono::steady_clock::now();
 
       for (int i = 0; i < vals.size(); i++) {
+#ifndef NDEBUG
+        std::cout << "answer " << indexes[i] << '\n';
+#endif
         auto val = search(vals[i]);
+#ifndef NDEBUG
+        std::cout << '\n';
+#endif
         valSum += val;
         assert(val == vals[i]);
       }
@@ -115,6 +121,7 @@ TestStats benchmark(
     {"i-seq-intercept", benchmark<i_seq_intercept> },
     {"i-guard", benchmark<InterpolationRecurseGuard>},
     {"i-slope", benchmark<i_slope>},
+    {"i-slope-lut", benchmark<i_slope_lut>},
     {"i-seq-simd", benchmark<i_simd>},
 
     {"b-lr", benchmark<BinaryLR<>>},
@@ -138,6 +145,9 @@ TestStats benchmark(
 
     {"oracle", benchmark<Oracle> }
   };
+#ifndef NDEBUG
+  std::cout << "BENCHMARK " << name << '\n';
+#endif
   auto ts = fns[name](keys, indexes, nThreads);
   if (!ts.ok)
     std::cerr << "mess up " << seed << ' ' << name << '\n';
