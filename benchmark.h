@@ -34,22 +34,6 @@ struct TestStats {
 
 using Benchmark = TestStats(const std::vector<Key>&, const std::vector<int>&, const int);
 
-double mode(std::vector<double> X) {
-  std::unordered_map<int, int> cnt;
-  //for (auto x : X) cnt[round(x*100.0)]++;
-  for (auto x : X) {
-    int ix = round(x*100.0);
-    if (0 == cnt.count(ix)) cnt[ix] = 0;
-    cnt[ix]++;
-  }
-  auto it = std::max_element(cnt.begin(), cnt.end(),
-      [](std::pair<int, int> l, std::pair<int, int> r) {
-      return l.second < r.second;
-      });
-  std::cerr << it->second << '\n';
-  return it->first / 100.0;
-}
-
 template <class S>
 TestStats benchmark(
     const std::vector<Key>& input,
@@ -98,7 +82,6 @@ TestStats benchmark(
     t_ok[tid] = valSum == expSum;
   }
   for (auto ok : t_ok) ts.ok = ts.ok && !!(ok);
-  //std::cerr << "Mode " << mode(ts.ns) << '\n';
   return ts;
 }
 
@@ -109,16 +92,11 @@ TestStats benchmark(
     const std::string& name,
     long seed) {
   static std::unordered_map<std::string, Benchmark*> fns{
-    {"b0", benchmark<B0>},
-    {"b1", benchmark<B1>},
     {"i", benchmark<InterpolationNaive>},
     {"i-precompute", benchmark<InterpolationPrecompute>},
     {"i-lut", benchmark<InterpolationRecurseLut>},
     {"i-seq-fp", benchmark<InterpolationLinearFp> },
-    {"i-seq-fp-intercept", benchmark<i_seq_fp_intercept> },
-    {"i-seq-fp-pick", benchmark<i_seq_fp_pick> },
     {"i-seq", benchmark<InterpolationLinear>},
-    {"i-seq-intercept", benchmark<i_seq_intercept> },
     {"i-guard", benchmark<InterpolationRecurseGuard>},
     {"i-slope", benchmark<i_slope>},
     {"i-slope-lut", benchmark<i_slope_lut>},
@@ -139,9 +117,7 @@ TestStats benchmark(
     {"b-sz-noeq-for", benchmark<BinarySzNoEqFor>},
     {"b-sz-pow", benchmark<BinarySzPow>},
     {"b-sz-lin", benchmark<BinarySzLin>},
-    {"b2", benchmark<B2>},
     //{"fib", benchmark<Fib>},
-    //{"set", benchmark<InterpolationSet>},
 
     {"oracle", benchmark<Oracle> }
   };
