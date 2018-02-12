@@ -23,7 +23,6 @@
 class IBase {
 public:
   using Index = int64_t;
-  using PadVec = PaddedVector<>;
 
   static constexpr int Recurse = -1;
   static constexpr bool Precompute = true;
@@ -32,7 +31,7 @@ public:
   template <bool fold=false>
   struct Lut {
     // maybe want a.size() since we truncate
-    Lut(const PadVec& a) : A(a), lgScale(lg(A.size() - 1)) {
+    Lut(const PaddedVector<>& a) : A(a), lgScale(lg(A.size() - 1)) {
       if (fold) {
         divisors /= (A.size() - 1);
         //divisors <<= lgScale;
@@ -40,7 +39,7 @@ public:
       d_range_width = (DivLut::Divisor((A.back() - A[0]) >>  lgScale) << lgScale) / (A.size() - 1);
     }
 
-    const PadVec& A;
+    const PaddedVector<>& A;
     int lgScale;
     DivLut::Divisor d_range_width;
     DivLut divisors;
@@ -57,10 +56,10 @@ public:
   };
   template <bool precompute=false>
     struct Float {
-      Float(const PadVec& a) : A(a), f_aL(A[0]),
+      Float(const PaddedVector<>& a) : A(a), f_aL(A[0]),
       f_width_range( (double)(A.size() - 1) / (double)(A.back() - A[0])) {}
 
-      const PadVec& A;
+      const PaddedVector<>& A;
       const double f_aL;
       const double f_width_range;
 
@@ -80,10 +79,10 @@ public:
     };
 
   struct IntDiv {
-    IntDiv(const PadVec& a) : A(a),
+    IntDiv(const PaddedVector<>& a) : A(a),
     i_range_width((A.back() - A[0]) / (A.size() - 1)) {}
 
-    const PadVec& A;
+    const PaddedVector<>& A;
     Key i_range_width;
 
     Index operator()(const Key x, const Index left, const Index right) {
@@ -94,9 +93,9 @@ public:
     }
   };
 protected:
-  PadVec A;
+  const PaddedVector<>& A;
 
-  IBase(const std::vector<Key>& v) : A(v) {}
+  IBase(const PaddedVector<>& v) : A(v) {}
 
 };
 
@@ -114,18 +113,17 @@ class Interpolation : public IBase {
     Index left = 0;
     Index right = A.size() - 1;
     assert(A.size() >= 1);
-    auto a = A.begin();
 
     Index mid = interpolate(x);
 #ifndef NDEBUG
-    std::cout << mid << ' ';
+//    std::cout << mid << ' ';
 #endif
     for (int i = 1; (nIter < 0 ? true : i < nIter); i++) {
       IACA_START
-      if (a[mid] < x) left = mid+1;
-      else if (a[mid] > x) right = mid-1;
-      else return a[mid];
-      if (left == right) return a[left];
+      if (A[mid] < x) left = mid+1;
+      else if (A[mid] > x) right = mid-1;
+      else return A[mid];
+      if (left == right) return A[left];
 
       assert(left<right);
       assert(left >= 0); assert(right < A.size());
@@ -141,40 +139,39 @@ class Interpolation : public IBase {
 
       if (nIter < 0) { 
         IACA_END
-        if (mid+guardOff >= right) return a[Linear::reverse(a, right, x)];
-        else if (mid-guardOff <= left) return a[Linear::forward(a, left, x)];
+        if (mid+guardOff >= right) return A[Linear::reverse(&A[0], right, x)];
+        else if (mid-guardOff <= left) return A[Linear::forward(&A[0], left, x)];
       }
       assert(mid >= left); assert(mid <= right);
     }
 
-    if (a[mid] > x) {
+    if (A[mid] > x) {
     //IACA_END
-      auto r = a[Linear::reverse(a, mid - 1, x)];
+      auto r = A[Linear::reverse(&A[0], mid - 1, x)];
       return r;
     } else {
     //IACA_END
-      auto r = a[Linear::forward(a, mid, x)];
+      auto r = A[Linear::forward(&A[0], mid, x)];
       return r;
     }
   }
 
   public:
-  Interpolation(const std::vector<Key>& v, const std::vector<int>& indexes) : IBase(v), interpolate(A), a0(A.cbegin()) { }
+  Interpolation(const PaddedVector<>& v) : IBase(v), interpolate(A), a0(A.cbegin()) { }
 
   __attribute__((always_inline))
   Key operator()(const Key x) { return is(x); }
 };
 
-template<class Interpolate = IBase::Float<true> >
+template<class Interpolate = IBase::Lut<> >
 class InterpolateSlope : public IBase {
   static constexpr int guardOff=32;
 
   Interpolate interpolate;
   using Linear = LinearUnroll<>;
 
-
   public:
-  InterpolateSlope(const std::vector<Key>& v, const std::vector<int>& indexes) : IBase(v), interpolate(A) { }
+  InterpolateSlope(const PaddedVector<>& v) : IBase(v), interpolate(A) { }
   __attribute__((always_inline))
   Key operator()(const Key x) {
     Index left = 0;
@@ -216,7 +213,6 @@ using InterpolationNaive = Interpolation<IBase::Float<>,IBase::Recurse, LinearUn
 using InterpolationPrecompute = Interpolation<IBase::Float<IBase::Precompute>,IBase::Recurse,LinearUnroll<>>;
 using InterpolationRecurseGuard = Interpolation<IBase::Float<IBase::Precompute>, IBase::Recurse, LinearUnroll<>, 32>;
 using i_slope = InterpolateSlope<>;
-using i_slope_lut = InterpolateSlope<IBase::Lut<>>;
 using InterpolationRecurse3 = Interpolation<IBase::Float<IBase::Precompute>, 3>;
 using InterpolationRecurseLut = Interpolation<IBase::Lut<>, IBase::Recurse, LinearUnroll<>, 32>;
 using InterpolationLinearFp = Interpolation<IBase::Float<IBase::Precompute>>;

@@ -33,9 +33,10 @@ BENCHMARKS=i-guard i-seq b-sz-lin i-simd
 BENCHMARKS=fib
 BENCHMARKS=i i-precompute i-seq-fp i-seq-fp-intercept i-seq i-seq-intercept
 BENCHMARKS=i-seq-fp i-seq-fp-intercept i-seq-fp-pick i-seq
-BENCHMARKS=i-guard i-slope i-slope-lut
+BENCHMARKS=-b i-guard -b i-slope -b i-slope-lut
 #BENCHMARKS=i-slope
-RUN=./search $(N_INTS) $(SEED) $(N_THREADS) $(BENCHMARKS)
+RUN=./search -n $(N_INTS) -s $(SEED) -t $(N_THREADS) $(BENCHMARKS)
+RUN=./search i-seq.tsv
 
 .PHONY: run search debug d_lin lin splines
 run: release

@@ -30,7 +30,7 @@ class BinaryLR {
   int lg_v;
 
   public:
-  BinaryLR(const std::vector<Key>& _a, const std::vector<int>& indexes) : A(_a) {
+  BinaryLR(const PaddedVector<>& _a) : A(_a) {
     lg_v=0;
     for (auto n = A.size(); n > MIN_EQ_SZ; n -= (n/2)) lg_v++;
   }
@@ -65,8 +65,8 @@ class BinaryLR {
     }
 
     Index guess = (l+r)/2;
-    if (A[guess] < x) return A[Linear::forward(A.begin(), guess+1, x)];
-    else return A[Linear::reverse(A.begin(), guess, x)];
+    if (A[guess] < x) return A[Linear::forward(&A[0], guess+1, x)];
+    else return A[Linear::reverse(&A[0], guess, x)];
   }
 };
 
@@ -79,11 +79,11 @@ template <bool RETURN_EARLY=true
          ,class Linear = LinearUnroll<>
          >
 class BinarySz {
-  PaddedVector<> A;
+  const PaddedVector<>& A;
   int lg_v, lg_min;
 
   public:
-  BinarySz(const std::vector<Key>& _a, const std::vector<int>& indexes) : A(_a) {
+  BinarySz(const PaddedVector<>& _a) : A(_a) {
     lg_v=lg_min=0;
     for (auto n = A.size();n > 1; n -= (n/2)) {
       lg_v++;
@@ -94,11 +94,10 @@ class BinarySz {
   __attribute__((always_inline))
     Key operator()(const Key x) {
       Index n = A.size();
-      auto a = A.begin();
       Index left = 0L;
       if (POW_2) {
         Index mid = n - (1UL << (lg_v-1));
-        left = a[mid] <= x ? mid : left;
+        left = A[mid] <= x ? mid : left;
         n -= mid;
       }
       // TODO how to set unroll = 4 if MIN_EQ_SZ > 1?, else 8?
@@ -108,18 +107,18 @@ class BinarySz {
         IACA_START \
         Index half = n / 2; \
         if (TEST_EQ) { \
-          if (x < a[left + half]) { \
+          if (x < A[left + half]) { \
             n = half; \
-          } else if (a[left + half] < x) { \
+          } else if (A[left + half] < x) { \
             left = left + half + 1; \
             n = n - half - 1; \
           } else { \
-            if (RETURN_EARLY) return a[left + half]; \
+            if (RETURN_EARLY) return A[left + half]; \
             left += half; \
             if (FOR) i = lg_min; else n = 0; \
           } \
         } else { \
-          left = a[left + half] <= x ? left + half : left; \
+          left = A[left + half] <= x ? left + half : left; \
           if (POW_2) n = half; \
           else n -= half; \
         } 
@@ -136,11 +135,11 @@ class BinarySz {
       }
 
       IACA_END
-      if (MIN_EQ_SZ == 1) return a[left];
+      if (MIN_EQ_SZ == 1) return A[left];
 
       Index guess = left + n/2;
-      if (a[guess] < x) return a[Linear::forward(a,guess+1,x)];
-      else return a[Linear::reverse(a,guess,x)];
+      if (A[guess] < x) return A[Linear::forward(&A[0],guess+1,x)];
+      else return A[Linear::reverse(&A[0],guess,x)];
     }
 };
 
