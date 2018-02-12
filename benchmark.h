@@ -168,21 +168,13 @@ struct Run {
         {"i-slope", measure<i_slope>},
         {"i-seq-simd", measure<i_simd>},
 
-        {"b-lr", measure<BinaryLR<>>},
-        {"b-lr-cond", measure<BinaryLRCond>},
-        {"b-lr-noeq", measure<BinaryLRNoEq>},
-        {"b-lr-for", measure<BinaryLRFor>},
-        {"b-lr-noeq-for", measure<BinaryLRNoEqFor>},
-        {"b-lr-over", measure<BinaryLROver>},
-        {"b-lr-lin", measure<BinaryLRLin>},
-
-        {"b-sz", measure<BinarySz<>>},
-        {"b-sz-cond", measure<BinarySzCond>},
-        {"b-sz-noeq", measure<BinarySzNoEq>},
-        {"b-sz-for", measure<BinarySzFor>},
-        {"b-sz-noeq-for", measure<BinarySzNoEqFor>},
-        {"b-sz-pow", measure<BinarySzPow>},
-        {"b-sz-lin", measure<BinarySzLin>},
+        {"b", measure<Binary<>>},
+        {"b-cond", measure<BinaryCond>},
+        {"b-noeq", measure<BinaryNoEq>},
+        {"b-for", measure<BinaryFor>},
+        {"b-noeq-for", measure<BinaryNoEqFor>},
+        {"b-pow", measure<BinaryPow>},
+        {"b-lin", measure<BinaryLin>},
     };
     auto ns = fns[this->name](*this, input);
     if (!this->ok)

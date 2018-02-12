@@ -20,70 +20,17 @@
 template <bool RETURN_EARLY=true
          ,bool TEST_EQ=true
          ,bool FOR=false
-         ,bool OVERFLOW_MATH=false
-         ,int MIN_EQ_SZ=1
-         ,typename Index = unsigned
-         ,class Linear = LinearUnroll<>
-         >
-class BinaryLR {
-  PaddedVector<> A;
-  int lg_v;
-
-  public:
-  BinaryLR(const PaddedVector<>& _a) : A(_a) {
-    lg_v=0;
-    for (auto n = A.size(); n > MIN_EQ_SZ; n -= (n/2)) lg_v++;
-  }
-    __attribute__((always_inline))
-  Key operator()(const Key x) {
-    // use pointer
-    Index l = 0;
-    Index r = A.size();
-
-    for (int i =  0; FOR ? i < lg_v : r - l > 1; i++) {
-      //IACA_START
-      assert(l <= r);    // ordering check
-      assert(l+r >= r); // overflow check
-      Index m = OVERFLOW_MATH ? (l+r)/2 : l + (r-l) / 2 ;
-      if (TEST_EQ) {
-        if (A[m] < x) {
-          l = m + 1;
-        } else if (A[m] > x) {
-          r = m;
-        } else {
-          if (RETURN_EARLY) return A[m];
-          l = r = m;
-        }
-      } else {
-        if (A[m] <= x) l = m;
-        else r = m;
-      }
-    }
-    if (MIN_EQ_SZ == 1) {
-      //IACA_END
-      return A[l];
-    }
-
-    Index guess = (l+r)/2;
-    if (A[guess] < x) return A[Linear::forward(&A[0], guess+1, x)];
-    else return A[Linear::reverse(&A[0], guess, x)];
-  }
-};
-
-template <bool RETURN_EARLY=true
-         ,bool TEST_EQ=true
-         ,bool FOR=false
          ,bool POW_2=false
          ,int MIN_EQ_SZ=1
          ,typename Index = unsigned long
          ,class Linear = LinearUnroll<>
          >
-class BinarySz {
+class Binary {
   const PaddedVector<>& A;
   int lg_v, lg_min;
 
   public:
-  BinarySz(const PaddedVector<>& _a) : A(_a) {
+  Binary(const PaddedVector<>& _a) : A(_a) {
     lg_v=lg_min=0;
     for (auto n = A.size();n > 1; n -= (n/2)) {
       lg_v++;
@@ -143,22 +90,11 @@ class BinarySz {
     }
 };
 
-using BinaryLRCond = BinaryLR<false>;
-using BinaryLROver = BinaryLR<false, true, false, true>;
-using BinaryLRNoEq = BinaryLR<false, false, false, true>;
-using BinaryLRFor = BinaryLR<false, true, true, true>;
-using BinaryLRNoEqFor = BinaryLR<false, false, true, true>;
-using BinaryLRLin = BinaryLR<false, false, true, true, 32>;
-
-using BinarySzCond = BinarySz<false>;
-using BinarySzNoEq = BinarySz<false, false>;
-using BinarySzFor = BinarySz<false, true, true>;
-using BinarySzNoEqFor = BinarySz<false, false, true>;
-using BinarySzPow = BinarySz<false, false, true, true>;
-using BinarySzLin = BinarySz<false, false, true, true, 32>;
-
-using B2 = BinarySz<false, false, false, true>;
-//using B0 = BinaryLinSize;
-//using B1 = BinarySize<32, true, true, unsigned long, LinearUnroll<>>;
+using BinaryCond = Binary<false>;
+using BinaryNoEq = Binary<false, false>;
+using BinaryFor = Binary<false, true, true>;
+using BinaryNoEqFor = Binary<false, false, true>;
+using BinaryPow = Binary<false, false, true, true>;
+using BinaryLin = Binary<false, false, true, true, 32>;
 
 #endif
