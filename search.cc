@@ -20,8 +20,15 @@
 int main(int argc, char *argv[]) {
   std::vector<Run> runs = Run::load(argv[1]);
   auto inputs = Input::load(runs);
-  std::cout << "n,seed,n_thds,name,ns\n";
-  for (auto& run : runs)
+  std::cout << "run,n,seed,n_thds,name,ns\n";
+  int run_ix = 0;
+  for (auto& run : runs) {
+    //double sum = 0.;
+    //for (auto ns : run(inputs.at(std::tuple(run.seed, run.n))))
+    //  sum += ns;
+    //std::cout << sum << '\n';
     for (auto ns : run(inputs.at(std::tuple(run.seed, run.n))))
-      printf("%ld,%ld,%d,%s,%.3f\n", run.n, run.seed, run.n_thds, run.name.c_str(), ns);
+      printf("%d,%ld,%ld,%d,%s,%.3f\n", run_ix, run.n, run.seed, run.n_thds, run.name.c_str(), ns);
+    run_ix++;
+  }
 }

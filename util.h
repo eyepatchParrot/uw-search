@@ -13,14 +13,6 @@ using SearchFn = int64_t(const Key*, int64_t, Key);
 #define ERR(A, args...) fprintf(stderr, A, args)
 #endif
 
-#ifndef N_RUNS
-#ifndef NDEBUG
-#define N_RUNS 5
-#else
-#define N_RUNS 5000
-#endif
-#endif
-
 #ifndef N_SAMPLES
 #define N_SAMPLES 10
 #endif

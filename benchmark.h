@@ -122,36 +122,43 @@ struct Run {
 
   template <class S>
   static std::vector<double> measure(Run& run, const Input& inputC) {
-    constexpr int nRuns = N_RUNS;
-    auto& vals = inputC.permuted_keys;
+    // I didn't get great results trying to find a particular value for the
+    // sample size, but this semed to be not terrible
+    constexpr int sample_size = 1000;
+    const int n_samples = inputC.keys.size() / sample_size;
+    auto& queries = inputC.permuted_keys;
 
     S search(inputC.keys);
 
-    std::vector<double> ns(nRuns * run.n_thds);
-
-    // get verification info
-    const auto expSum = [&inputC](){
-      for (auto j=0UL,r=0UL;;j++,r+=inputC.sum) if (j >= nRuns) return r; }();
+    //std::vector<double> ns( run.n_thds);
+    std::vector<double> ns(n_samples * run.n_thds);
 
     // TODO break apart by threads
-#pragma omp parallel default(none) num_threads(run.n_thds) shared(vals, run, search, ns)
+#pragma omp parallel default(none) num_threads(run.n_thds) shared(queries, run, search, ns)
     {
       const int tid = omp_get_thread_num();
+      const auto& thread_ns = &ns[tid * n_samples];
+      thread_ns[0] = 0.0;
       auto valSum = 0UL;
-      for (int runIx = 0; runIx < nRuns; runIx++) {
-        auto t0 = std::chrono::steady_clock::now();
+      for (int sample_index = 0, query_index = 0; sample_index < n_samples;
+          sample_index++, query_index += sample_size) {
+        if (query_index + sample_size > queries.size()) query_index = 0;
 
-        for (int i = 0; i < vals.size(); i++) {
-          auto val = search(vals[i]);
+        auto t0 = std::chrono::steady_clock::now();
+        for (int i = query_index; i < query_index + sample_size; i++) {
+          auto val = search(queries[i]);
           valSum += val;
-          assert(val == vals[i]);
+          assert(val == queries[i]);
         }
 
         auto t1 = std::chrono::steady_clock::now();
-        ns[(tid*nRuns)+runIx] = std::chrono::nanoseconds(t1-t0).count() / (double)vals.size();
+        double ns_elapsed = std::chrono::nanoseconds(t1-t0).count();
+        //thread_ns[0] += ns_elapsed;
+        thread_ns[sample_index] = ns_elapsed / sample_size;
+        // should the sample index be included?
       }
 #pragma omp critical
-      run.ok = run.ok && valSum == expSum;
+      run.ok = run.ok && valSum == inputC.sum;
     }
     return ns;
   }
