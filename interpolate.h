@@ -31,12 +31,9 @@ public:
   template <bool fold=false>
   struct Lut {
     // maybe want a.size() since we truncate
-    Lut(const PaddedVector<>& a) : A(a), lgScale(lg(A.size() - 1)) {
-      if (fold) {
-        divisors /= (A.size() - 1);
-        //divisors <<= lgScale;
-      }
-      d_range_width = (DivLut::Divisor((A.back() - A[0]) >>  lgScale) << lgScale) / (A.size() - 1);
+    Lut(const PaddedVector<>& a) : A(a), lgScale(std::max(0L, lg(A.size() - 1UL) + lg((uint64_t)A.back()) - 64L)) {
+      if (fold) divisors /= (A.size() - 1);
+      d_range_width = DivLut::Gen(A.back() - A[0]) / (A.size() - 1);
     }
 
     const PaddedVector<>& A;
