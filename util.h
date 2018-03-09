@@ -1,6 +1,7 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <algorithm>
 #include <cinttypes>
 #include <assert.h>
 #include <vector>
@@ -50,15 +51,14 @@ constexpr inline int lg_flrl(uint64_t x) {
   return 64 - __builtin_clzl(x);
 }
 
-std::vector<std::string> split(std::string s, char delim) {
-  std::replace(s.begin(), s.end(), ',', ' ');
+std::vector<std::string> split(std::string s, char delim=',') {
   std::vector<std::string> v;
-  std::stringstream ss(s);
-  for (std::stringstream ss(s); ss.good(); ) {
-    std::string s;
-    ss >> s;
-    v.push_back(s);
-  }
+	for (auto it = s.begin(); it != s.end();) {
+		auto start = it;
+		it = std::find(it, s.end(), delim);
+		v.emplace_back(start, it);
+		if (it != s.end()) it++;
+	}
   return v;
 }
 

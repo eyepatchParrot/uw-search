@@ -58,8 +58,8 @@ debug : CXXFLAGS += -O0
 debug : search
 	gdb --args $(RUN)
 
-dump : CXXFLAGS += -DDUMP_INPUT
-dump : search
+dump : dump.cc benchmark.h
+	$(CXX) $(CXXFLAGS) dump.cc -o $@ $(LDFLAGS)
 
 # add release identifier for object files
 %.o: %.cc

@@ -20,6 +20,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <set>
 #include <unordered_map>
 #include <vector>
 
@@ -42,32 +43,80 @@ struct Input {
       std::sort(keys.begin(), keys.end());
     }
 
+    std::vector<Key> gap(long seed, double sparsity) {
+      assert(sparsity <= 1.0);
+
+      std::vector<Key> v(keys.size());
+      long range = v.size() / sparsity;
+      assert(range >= v.size());
+
+      std::mt19937_64 rng(seed);
+      // TODO make sure that this is correct
+      std::uniform_int_distribution<Key> dist(0, range);
+      std::set<Key> skips;
+      while (skips.size() + v.size() < range) skips.insert(dist(rng));
+      for (Key k = 0, i = 0; k < range; k++) if (skips.count(k) == 0) v[i++] = k;
+      return v;
+    }
+
+    std::vector<Key> fal(double shape) {
+      std::vector<Key> v(keys.size());
+      auto n = v.size();
+      double scale = 1.0 / pow(n-1, -shape) - pow(n, -shape); // (n-1)**(-s) - n**(-s)
+      // [int((n-i)**(-s) / C) for i in range(n,0,-1)]
+      for (auto i = 0; i < v.size(); i++)
+        v[i] = pow((double)(n-i), -shape) * scale; 
+      return v;
+    }
+
+    void fill(const std::vector<Key>&& v, long seed = 42) {
+      keys = std::move(v);
+      std::copy(keys.begin(), keys.end(), permuted_keys.begin());
+      std::shuffle(permuted_keys.begin(), permuted_keys.end(), std::mt19937(seed));
+    }
+
   public:
-    using Id = std::tuple<long, std::string>;
+    using Id = std::tuple<long, std::string, std::string>;
     static std::map<Id, Input> load(std::vector<Run> runs);
 
     std::vector<Key> permuted_keys;
     PaddedVector<> keys;
     unsigned long sum;
 
-  Input(long n, std::vector<std::string> params) : permuted_keys(n), keys(n) {
+  Input(const long n, const std::string& distribution, const std::vector<std::string>& params) : permuted_keys(n), keys(n) {
     auto param = params.begin();
-    auto distribution = *param;
+    // uniform - seed
+    // gaps    - seed, range
+    // FB      - file
+    // fal     - shape
+    // cfal    - shape
     if (distribution == "uniform") {
       long seed;
-      std::stringstream(*(++param)) >> seed;
+      std::stringstream(*param) >> seed;
       fillUniform(seed);
+    } else if (distribution == "gap") {
+      long seed;
+      double sparsity;
+      std::stringstream(*param) >> seed;
+      std::stringstream(*(++param)) >> sparsity;
+      fill(gap(seed, sparsity), seed);
+    } else if (distribution == "fal") {
+      double shape;
+      std::stringstream(*param) >> shape;
+      fill(fal(shape));
+    } else if (distribution == "cfal") {
+      double shape;
+      std::stringstream(*param) >> shape;
+      auto v = fal(shape);
+      std::partial_sum(v.begin(), v.end(), v.begin());
+      fill(std::move(v));
+    } else {
+      assert(!"No distribution found.");
     }
 
-    // todo the gaps, calculate the subset of keys to skip, and incremently fill
     sum = std::accumulate(keys.begin(), keys.end(), 0UL);
   }
 
-      // uniform - seed
-      // gaps    - seed, range
-      // FB      - file
-      // fal     - shape
-      // cfal    - shape
 };
 
 struct Run {
@@ -84,7 +133,7 @@ struct Run {
       std::getline(f, line);
       std::stringstream ss(line);
       Run r;
-      std::vector<int> set(4, 0);
+      std::vector<int> set(5, 0);
       for (auto field : header) {
         if (!ss.good()) break;
         if (field == "n") {
@@ -99,6 +148,9 @@ struct Run {
         } else if (field == "algorithm") {
           ss >> r.name;
           set[3] = 1;
+        } else if (field == "distribution") {
+          ss >> r.distribution;
+          set[4] = 1;
         }
       }
       if (std::all_of(set.begin(), set.end(), [](int x){ return 1==x; }))
@@ -107,7 +159,7 @@ struct Run {
     return runs;
   }
 
-  std::string name, param;
+  std::string name, distribution, param;
   long n;
   int n_thds;
   bool ok = true;
@@ -129,6 +181,7 @@ struct Run {
 
     //std::vector<double> ns( run.n_thds);
     std::vector<double> ns(n_samples * run.n_thds);
+    // TODO allow this to run indefinitely if an appropriate flag is set. Ensure memory is O(1)
 
     // TODO break apart by threads
 #pragma omp parallel default(none) num_threads(run.n_thds) shared(queries, run, search, ns)
@@ -195,7 +248,7 @@ struct Run {
 
 std::map<Input::Id, Input> Input::load(std::vector<Run> runs) {
   std::map<Input::Id, Input> inputs;
-  for (auto r : runs) inputs.try_emplace(Id(r.n, r.param), r.n, split(r.param, ','));
+  for (auto r : runs) inputs.try_emplace(Id(r.n, r.distribution, r.param), r.n, r.distribution, split(r.param, ','));
   return inputs;
 }
 
