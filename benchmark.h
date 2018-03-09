@@ -13,14 +13,15 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <fstream>
 #include <iostream>
+#include <map>
 #include <numeric>
+#include <random>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <fstream>
-#include <sstream>
-#include <map>
 
 #if IACA == 1
 #include <iacaMarks.h>
@@ -33,49 +34,40 @@ struct Run;
 
 struct Input {
   private:
-    static std::vector<Key> randNums(long n, long seed) {
-      std::mt19937_64 rng(seed);
-      std::uniform_int_distribution<Key> dist(1, (1L<<63) - 2);
-      std::vector<Key> v(n);
-      for (auto& x : v) x = dist(rng);
-      return v;
-    }
-
-    struct KeyRandomSortedIndex {
-      Key key;
-      int random_index;
-      int sorted_index;
-
-      KeyRandomSortedIndex(Key k) { key = k; }
-    };
-    Input(size_t n) : keys(n) {
-      permuted_keys.resize(n);
-    }
-    void fillRand(long seed) {
+    void fillUniform(long seed) {
       std::mt19937_64 rng(seed);
       std::uniform_int_distribution<Key> dist(1, (1L<<63) - 2);
       for (size_t i = 0; i < keys.size(); i++)
         keys[i] = permuted_keys[i] = dist(rng);
       std::sort(keys.begin(), keys.end());
-      sum = std::accumulate(permuted_keys.begin(), permuted_keys.end(), 0UL);
     }
 
   public:
-    using SeedN = std::tuple<long, long>;
-    static std::map<SeedN, Input> load(std::vector<Run> runs);
+    using Id = std::tuple<long, std::string>;
+    static std::map<Id, Input> load(std::vector<Run> runs);
 
     std::vector<Key> permuted_keys;
     PaddedVector<> keys;
     unsigned long sum;
 
-    // TODO use n_gets so that we don't have to store whole array permutation
-  Input(std::vector<Key> nums, long n_gets) : permuted_keys(nums), keys(nums),
-      sum(std::accumulate(nums.begin(), nums.end(), 0UL)) {
-#ifdef DUMP_INPUT
-    return;
-#endif
-    std::sort(keys.begin(), keys.end());
+  Input(long n, std::vector<std::string> params) : permuted_keys(n), keys(n) {
+    auto param = params.begin();
+    auto distribution = *param;
+    if (distribution == "uniform") {
+      long seed;
+      std::stringstream(*(++param)) >> seed;
+      fillUniform(seed);
+    }
+
+    // todo the gaps, calculate the subset of keys to skip, and incremently fill
+    sum = std::accumulate(keys.begin(), keys.end(), 0UL);
   }
+
+      // uniform - seed
+      // gaps    - seed, range
+      // FB      - file
+      // fal     - shape
+      // cfal    - shape
 };
 
 struct Run {
@@ -85,7 +77,7 @@ struct Run {
     std::string line;
     std::getline(f, line);
     assert(f.good());
-    for (auto [ss, word] = std::tuple(std::stringstream(line), std::string());
+    for (auto [ss, word] = std::tuple<std::stringstream, std::string>(line, "");
         ss.good(); header.push_back(word)) ss >> word;
     std::vector<Run> runs;
     for (; f.good(); ) {
@@ -98,8 +90,8 @@ struct Run {
         if (field == "n") {
           ss >> r.n;
           set[0] = 1;
-        } else if (field == "seed") {
-          ss >> r.seed;
+        } else if (field == "param") {
+          ss >> r.param;
           set[1] = 1;
         } else if (field == "thread") {
           ss >> r.n_thds;
@@ -115,8 +107,8 @@ struct Run {
     return runs;
   }
 
-  std::string name;
-  long seed, n;
+  std::string name, param;
+  long n;
   int n_thds;
   bool ok = true;
 
@@ -185,24 +177,14 @@ struct Run {
     };
     auto ns = fns[this->name](*this, input);
     if (!this->ok)
-      std::cerr << "mess up " << this->seed << ' ' << this->name << '\n';
+      std::cerr << "mess up " << this->param << ' ' << this->name << '\n';
     return ns;
   }
 };
 
-std::map<Input::SeedN, Input> Input::load(std::vector<Run> runs) {
-  std::vector<SeedN> input_set;
-  for (auto r : runs) input_set.emplace_back(r.seed, r.n);
-  std::sort(input_set.begin(), input_set.end());
-  input_set.resize(std::distance(input_set.begin(),
-        std::unique(input_set.begin(), input_set.end())));
-  std::map<SeedN, Input> inputs;
-  for (auto seed_n : input_set)
-    inputs.emplace(seed_n, Input(std::get<1>(seed_n)));
-#pragma omp parallel for
-  for (size_t i = 0; i < input_set.size(); i++)
-    inputs.at(input_set[i]).fillRand(std::get<0>(input_set[i]));
-
+std::map<Input::Id, Input> Input::load(std::vector<Run> runs) {
+  std::map<Input::Id, Input> inputs;
+  for (auto r : runs) inputs.try_emplace(Id(r.n, r.param), r.n, split(r.param, ','));
   return inputs;
 }
 

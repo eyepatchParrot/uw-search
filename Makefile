@@ -13,7 +13,7 @@ ifdef SUBSET_SIZE
 endif
 
 CXX=clang++
-CXXFLAGS=-fopenmp -ffast-math -Wall -std=c++1z -fno-omit-frame-pointer -ggdb -march=native $(DEFINES) -I$(HOME)/iaca/include
+CXXFLAGS=-fopenmp -ffast-math -Wall -std=c++17 -stdlib=libc++ -fno-omit-frame-pointer -ggdb -march=native $(DEFINES) -I$(HOME)/iaca/include
 LIB=-I$(HOME)/include -L$(HOME)/lib  -I$(HOME)/iaca/include
 HEADERS=oracle.h interpolate.h benchmark.h bin.h lin.h util.h div.h
 OBJ=

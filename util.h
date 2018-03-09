@@ -3,6 +3,9 @@
 
 #include <cinttypes>
 #include <assert.h>
+#include <vector>
+#include <string>
+#include <sstream>
 
 using Key = int64_t;
 using SearchFn = int64_t(const Key*, int64_t, Key);
@@ -29,6 +32,18 @@ inline unsigned lg(unsigned x) {
 inline unsigned lg_flr(unsigned x) {
   assert(x >= 1);
   return 32 - __builtin_clz(x);
+}
+
+std::vector<std::string> split(std::string s, char delim) {
+  std::replace(s.begin(), s.end(), ',', ' ');
+  std::vector<std::string> v;
+  std::stringstream ss(s);
+  for (std::stringstream ss(s); ss.good(); ) {
+    std::string s;
+    ss >> s;
+    v.push_back(s);
+  }
+  return v;
 }
 
 #endif
