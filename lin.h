@@ -2,6 +2,7 @@
 #define LIN_H
 
 #include <x86intrin.h>
+#include "util.h"
 //#include <iacaMarks.h>
 
 // TODO use padded vector
@@ -54,7 +55,7 @@ public:
 template <int n=8>
 class LinearUnroll {
   template <bool reverse=false>
-    static int64_t linUnroll(const int64_t* a, int64_t m, int64_t k) {
+    static int64_t linUnroll(const Key* a, int64_t m, Key k) {
       for (;;m = (reverse?m-n:m+n)) {
         for (int i = 0; i < n; i++) {
           //assert(m+i < 1032); assert((m-i) > -32);
@@ -65,10 +66,10 @@ class LinearUnroll {
       }
     }
 public:
-    static int64_t forward(const int64_t* a, const int64_t guessIx, const int64_t x) {
+    static int64_t forward(const Key* a, const int64_t guessIx, const Key x) {
       return linUnroll<false>(a, guessIx, x); 
     }
-    static int64_t reverse(const int64_t* a, const int64_t guessIx, const int64_t x) {
+    static int64_t reverse(const Key* a, const int64_t guessIx, const Key x) {
       return linUnroll<true>(a, guessIx, x);
     }
 };
