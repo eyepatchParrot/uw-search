@@ -46,7 +46,7 @@ public:
       return left + (Key)(((x - A[left]) >> lgScale) * (right-left)) /
         divisors[(A[right] - A[left]) >> lgScale];
     }
-    Index operator()(const Key x) { return (x-A[0]) / d_range_width; }
+    Index operator()(const Key x) { return (uint64_t)(x-A[0]) / d_range_width; }
     Index operator()(const Key x, const Index mid) {
       return mid + (x - A[mid]) / d_range_width;
     }
@@ -142,13 +142,11 @@ class Interpolation : public IBase {
       assert(mid >= left); assert(mid <= right);
     }
 
-    if (A[mid] > x) {
-    //IACA_END
-      auto r = A[Linear::reverse(&A[0], mid - 1, x)];
+    if (A[mid] >= x) {
+      auto r = A[Linear::reverse(&A[0], mid, x)];
       return r;
     } else {
-    //IACA_END
-      auto r = A[Linear::forward(&A[0], mid, x)];
+      auto r = A[Linear::forward(&A[0], mid + 1, x)];
       return r;
     }
   }
