@@ -114,8 +114,13 @@ struct Run {
 
   template <class S>
   static std::vector<double> measure(Run& run, const Input& inputC) {
+#ifdef INFINITE_REPEAT
+    constexpr bool infinite_repeat = true;
+#else
+    constexpr bool infinite_repeat = false;
+#endif
     // I didn't get great results trying to find a particular value for the
-    // sample size, but this semed to be not terrible
+    // sample size, but this seemed to be not terrible
     constexpr int sample_size = 1000;
     const int n_samples = inputC.keys.size() / sample_size;
     auto& queries = inputC.permuted_keys;
@@ -132,9 +137,15 @@ struct Run {
       const auto& thread_ns = &ns[tid * n_samples];
       thread_ns[0] = 0.0;
       auto valSum = 0UL;
-      for (int sample_index = 0, query_index = 0; sample_index < n_samples;
+      for (int sample_index = 0, query_index = 0;;
           sample_index++, query_index += sample_size) {
-        if (query_index + sample_size > queries.size()) query_index = 0;
+        if (query_index + sample_size > queries.size()) {
+          if (sample_index == n_samples) {
+            if (!infinite_repeat || valSum != inputC.sum) break;
+            valSum = n_samples = 0;
+          }
+          query_index = 0;
+        }
 
         auto t0 = std::chrono::steady_clock::now();
         for (int i = query_index; i < query_index + sample_size; i++) {
@@ -146,7 +157,7 @@ struct Run {
         auto t1 = std::chrono::steady_clock::now();
         double ns_elapsed = std::chrono::nanoseconds(t1-t0).count();
         //thread_ns[0] += ns_elapsed;
-        thread_ns[sample_index] = ns_elapsed / sample_size;
+        if (!infinite_repeat) thread_ns[sample_index] = ns_elapsed / sample_size;
         // should the sample index be included?
       }
 #pragma omp critical

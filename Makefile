@@ -35,12 +35,15 @@ BENCHMARKS=i i-precompute i-seq-fp i-seq-fp-intercept i-seq i-seq-intercept
 BENCHMARKS=i-seq-fp i-seq-fp-intercept i-seq-fp-pick i-seq
 BENCHMARKS=-b i-guard -b i-slope -b i-slope-lut
 #BENCHMARKS=i-slope
-RUN=./search -n $(N_INTS) -s $(SEED) -t $(N_THREADS) $(BENCHMARKS)
 RUN=./search i-seq.tsv
 
 .PHONY: run search debug d_lin lin splines
 run: release
 	$(RUN)
+
+prof : CXXFLAGS += -DINFINITE_REPEAT
+prof : release
+	perf record -F99 -g $(RUN)
 
 iaca : IACA=1
 iaca: release
