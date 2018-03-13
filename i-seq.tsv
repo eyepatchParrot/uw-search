@@ -1,0 +1,7 @@
+n	distribution param	thread	algorithm
+1000	uniform	42	1	i-slope
+1000	uniform	42	1	i-seq
+1000	fal	1.05	1	i-slope
+1000	fal	1.05	1	i-seq
+1000	cfal	1.05	1	i-slope
+1000	cfal	1.05	1	i-seq
