@@ -62,7 +62,7 @@ struct Input {
     std::vector<Key> fal(double shape) {
       std::vector<Key> v(keys.size());
       auto n = v.size();
-      double scale = 1.0 / pow(n-1, -shape) - pow(n, -shape); // (n-1)**(-s) - n**(-s)
+      double scale = 1.0 / (pow(n-1, -shape) - pow(n, -shape)); // (n-1)**(-s) - n**(-s)
       // [int((n-i)**(-s) / C) for i in range(n,0,-1)]
       for (auto i = 0; i < v.size(); i++)
         v[i] = pow((double)(n-i), -shape) * scale; 
