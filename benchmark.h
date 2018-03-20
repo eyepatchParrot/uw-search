@@ -239,6 +239,7 @@ struct Run {
         {"b-pow", measure<BinaryPow>},
         {"b-lin", measure<BinaryLin>},
     };
+    std::cerr << "run " << n << ' ' << distribution << ' ' << param << ' ' << name << '\n';
     auto ns = fns[this->name](*this, input);
     if (!this->ok)
       std::cerr << "mess up " << this->param << ' ' << this->name << '\n';
@@ -248,7 +249,10 @@ struct Run {
 
 std::map<Input::Id, Input> Input::load(std::vector<Run> runs) {
   std::map<Input::Id, Input> inputs;
-  for (auto r : runs) inputs.try_emplace(Id(r.n, r.distribution, r.param), r.n, r.distribution, split(r.param, ','));
+  for (auto r : runs) {
+    std::cerr << "load " << r.n << ' ' << r.distribution << ' ' << r.param << '\n';
+    inputs.try_emplace(Id(r.n, r.distribution, r.param), r.n, r.distribution, split(r.param, ','));
+  }
   return inputs;
 }
 

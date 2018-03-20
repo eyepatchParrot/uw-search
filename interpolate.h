@@ -43,12 +43,12 @@ public:
 
     Index operator()(const Key x, const Index left, const Index right) {
       if (fold) return left + (Key)((x - A[left]) >> lgScale) / divisors[(A[right] - A[left])];
-      return left + (Key)(((x - A[left]) >> lgScale) * (right-left)) /
+      return left + (uint64_t)(((x - A[left]) >> lgScale) * (right-left)) /
         divisors[(A[right] - A[left]) >> lgScale];
     }
     Index operator()(const Key x) { return (uint64_t)(x-A[0]) / d_range_width; }
     Index operator()(const Key x, const Index mid) {
-      return mid + (x - A[mid]) / d_range_width;
+      return mid + (Key)(x - A[mid]) / d_range_width;
     }
   };
   template <bool precompute=false>
@@ -125,8 +125,9 @@ class Interpolation : public IBase {
       assert(left<right);
       assert(left >= 0); assert(right < A.size());
       mid = interpolate(x, left, right);
+      assert(mid > -32); assert(mid < A.size()+32);
 #ifndef NDEBUG
-      std::cout << mid << ' ';
+      std::cout << "mid " <<mid << ' ';
       auto fp = IBase::Float<IBase::Precompute>(A);
       auto d2 = (int)fp(x, left, right) - mid;
       if (d2*d2 > 1) {
@@ -188,6 +189,7 @@ class InterpolateSlope : public IBase {
       assert(left >= 0); assert(right < A.size());
       mid = interpolate(x, mid);
 
+      assert(mid > -32); assert(mid < A.size()+32);
 #ifndef NDEBUG
       std::cout << mid << ' ';
       auto fp = IBase::Float<IBase::Precompute>(A);

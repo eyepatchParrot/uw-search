@@ -41,8 +41,8 @@ RUN=./search i-seq.tsv
 run: release
 	$(RUN)
 
-prof : CXXFLAGS += -DINFINITE_REPEAT
-prof : release
+perf : CXXFLAGS += -DINFINITE_REPEAT
+perf : release
 	perf record -F99 -g $(RUN)
 
 iaca : IACA=1
