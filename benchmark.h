@@ -216,6 +216,7 @@ struct Run {
 #pragma omp critical
       run.ok = run.ok && valSum == inputC.sum;
     }
+    //std::cerr << search.err << '\n';
     return ns;
   }
 
@@ -230,6 +231,8 @@ struct Run {
         {"i-guard", measure<InterpolationRecurseGuard>},
         {"i-slope", measure<i_slope>},
         {"i-seq-simd", measure<i_simd>},
+        {"i-exp-seq", measure<i_exp_seq>},
+        {"i-exp", measure<i_exp>},
 
         {"b", measure<Binary<>>},
         {"b-cond", measure<BinaryCond>},
