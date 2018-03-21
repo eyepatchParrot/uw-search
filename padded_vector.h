@@ -38,6 +38,7 @@ class PaddedVector {
   const Key* cbegin() const { return v.data() + pad; }
   size_t size() const { return v.size() - 2*pad; }
   Key back() const { return (*this)[size()-1]; }
+  auto get_pad() const { return pad; }
 };
 
 #endif

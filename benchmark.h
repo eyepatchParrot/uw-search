@@ -52,10 +52,10 @@ struct Input {
 
       std::mt19937_64 rng(seed);
       // TODO make sure that this is correct
-      std::uniform_int_distribution<Key> dist(0, range);
+      std::uniform_int_distribution<Key> dist(1, range+1);
       std::set<Key> skips;
       while (skips.size() + v.size() < range) skips.insert(dist(rng));
-      for (Key k = 0, i = 0; k < range; k++) if (skips.count(k) == 0) v[i++] = k;
+      for (Key k = 1, i = 0; k < range+1; k++) if (skips.count(k) == 0) v[i++] = k;
       return v;
     }
 
@@ -223,23 +223,22 @@ struct Run {
   using Benchmark = std::vector<double>(Run&, const Input&);
   auto operator()(const Input& input) {
     static std::unordered_map<std::string, Benchmark*> fns{
-      {"i", measure<InterpolationNaive>},
-        {"i-precompute", measure<InterpolationPrecompute>},
-        {"i-lut", measure<InterpolationRecurseLut>},
-        {"i-seq-fp", measure<InterpolationLinearFp> },
-        {"i-seq", measure<InterpolationLinear>},
-        {"i-guard", measure<InterpolationRecurseGuard>},
-        {"i-slope", measure<i_slope>},
-        {"i-seq-simd", measure<i_simd>},
-        {"i-exp-seq", measure<i_exp_seq>},
-        {"i-exp", measure<i_exp>},
+      {"i-naive", measure<i_naive>},
+      {"i-opt", measure<i_opt>},
+      {"i-seq", measure<i_seq>},
+      {"i-recompute", measure<i_recompute>},
+      {"i-no-guard", measure<i_no_guard>},
+      {"i-fp", measure<i_fp>},
+      {"i-idiv", measure<i_idiv>},
+      {"i-exp-seq", measure<i_exp_seq>},
+      {"i-exp", measure<i_exp>},
 
-        {"b", measure<Binary<>>},
-        {"b-cond", measure<BinaryCond>},
-        {"b-noeq", measure<BinaryNoEq>},
-        {"b-for", measure<BinaryFor>},
-        {"b-noeq-for", measure<BinaryNoEqFor>},
-        {"b-pow", measure<BinaryPow>},
+        //{"b", measure<Binary<>>},
+        //{"b-cond", measure<BinaryCond>},
+        //{"b-noeq", measure<BinaryNoEq>},
+        //{"b-for", measure<BinaryFor>},
+        //{"b-noeq-for", measure<BinaryNoEqFor>},
+        //{"b-pow", measure<BinaryPow>},
         {"b-lin", measure<BinaryLin>},
     };
     std::cerr << "run " << n << ' ' << distribution << ' ' << param << ' ' << name << '\n';

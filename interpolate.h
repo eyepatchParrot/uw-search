@@ -52,7 +52,7 @@ public:
       return mid + (Key)(x - A[mid]) / d_range_width;
     }
   };
-  template <bool precompute=false>
+  template <bool precompute=true>
     struct Float {
       Float(const PaddedVector<>& a) : A(a), f_aL(A[0]),
       f_width_range( (double)(A.size() - 1) / (double)(A.back() - A[0])) {}
@@ -79,7 +79,8 @@ public:
   struct Exp {
     Exp(const PaddedVector<>& a) : A(a), y_1(A[A.size()>>1]
         ), diff_y_01(A[0] - y_1
-          ),  a_0(diff_y_01 / (double)(y_1 - A[A.size()-1])
+          ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
+            diff_y_01 / (double)(y_1 - A[A.size()-1])
             ), lg_a_0(log(a_0)
               ), diff_scale(A[0] - a_0 * y_1
                 ), d(A.size()>>1)
@@ -114,8 +115,6 @@ def exp_next(points, y_star):
     }
   };
 
-
-
   struct IntDiv {
     IntDiv(const PaddedVector<>& a) : A(a),
     i_range_width((A.back() - A[0]) / (A.size() - 1)) {}
@@ -126,150 +125,137 @@ def exp_next(points, y_star):
     Index operator()(const Key x, const Index left, const Index right) {
       return left + (x-A[left]) / ((A[right]-A[left]) / (right-left));
     }
+    Index operator()(const Key x, const Index mid) {
+      return mid + (x - A[mid]) / i_range_width;
+    }
     Index operator()(const Key x) {
       return (x - A[0]) / i_range_width;
     }
   };
+
 protected:
   const PaddedVector<>& A;
 
   IBase(const PaddedVector<>& v) : A(v) {}
-
 };
 
 template <class Interpolate = IBase::Lut<>
-         ,int nIter = 1
-         ,class Linear = LinearUnroll<>
-         ,int guardOff=0
+         ,int nIter = IBase::Recurse
+         ,int guardOff=32
+         ,bool min_width = false
          >
 class Interpolation : public IBase {
-  Interpolate interpolate;
-  const Key* a0;
-
-  __attribute__((always_inline))
-  auto is(const Key x) {
-    Index left = 0;
-    Index right = A.size() - 1;
-    assert(A.size() >= 1);
-
-    Index mid = interpolate(x);
-#ifndef NDEBUG
-//    std::cout << mid << ' ';
-#endif
-    for (int i = 1; (nIter < 0 ? true : i < nIter); i++) {
-      IACA_START
-      if (A[mid] < x) left = mid+1;
-      else if (A[mid] > x) right = mid-1;
-      else return A[mid];
-      if (left == right) return A[left];
-
-      assert(left<right);
-      assert(left >= 0); assert(right < A.size());
-      mid = interpolate(x, left, right);
-      assert(mid > -32); assert(mid < A.size()+32);
-#ifndef NDEBUG
-//      std::cout << "mid " <<mid << ' ';
-//      auto fp = IBase::Float<IBase::Precompute>(A);
-//      auto d2 = (int)fp(x, left, right) - mid;
-//      if (d2*d2 > 1) {
-//        printf("%lu, %lu, %lu = %lu ~ %ld\n", x, left, right, mid, d2);
-//      }
-#endif
-
-      if (nIter < 0) { 
-        IACA_END
-        if (mid+guardOff >= right) {
-          auto r = A[Linear::reverse(&A[0], right, x)];
-//          err += i;
-          return r;
-        } else if (mid-guardOff <= left) {
-          auto r = A[Linear::forward(&A[0], left, x)];
-          err += i;
-          return r;
-        }
-      }
-      assert(mid >= left); assert(mid <= right);
-    }
-
-    if (A[mid] >= x) {
-      auto r = Linear::reverse(&A[0], mid, x);
-//      err += abs(r-mid);
-      return A[r];
-    } else {
-      auto r = Linear::forward(&A[0], mid + 1, x);
-//      err += abs(r-mid);
-      return A[r];
-    }
-  }
-
-  public:
-  Interpolation(const PaddedVector<>& v) : IBase(v), interpolate(A), a0(A.cbegin()), err(0) { }
-
-  long err;
-
-  __attribute__((always_inline))
-  Key operator()(const Key x) { return is(x); }
-};
-
-template<class Interpolate = IBase::Lut<> >
-class InterpolateSlope : public IBase {
-  static constexpr int guardOff=32;
-
-  Interpolate interpolate;
   using Linear = LinearUnroll<>;
+  Interpolate interpolate;
 
   public:
-  InterpolateSlope(const PaddedVector<>& v) : IBase(v), interpolate(A) { }
-  long err;
+  Interpolation(const PaddedVector<>& v) : IBase(v), interpolate(A) { }
+
   __attribute__((always_inline))
   Key operator()(const Key x) {
-    Index left = 0;
-    Index right = A.size() - 1;
     assert(A.size() >= 1);
-
-    Index mid = interpolate(x);
-#ifndef NDEBUG
-    std::cout << mid << ' ';
-#endif
-    for (int i = 1; ; i++) {
+    Index left = 0, right = A.size() - 1, next = interpolate(x);
+    for (int i = 1; nIter < 0 ? true : i < nIter; i++) {
       IACA_START
-      if (A[mid] < x) left = mid+1;
-      else if (A[mid] > x) right = mid-1;
-      else return A[mid];
-      if (left == right) return A[left];
+      if (A[next] < x) left = next+1;
+      else if (A[next] > x) right = next-1;
+      else return A[next];
+      if (min_width) {
+        if (right - left <= guardOff) return A[Linear::reverse(&A[0], right, x)];
+      } else if (left == right) return A[left];
 
       assert(left<right);
       assert(left >= 0); assert(right < A.size());
-      mid = interpolate(x, mid);
+      next = interpolate(x, left, right);
+      assert(next > -32); assert(next < A.size()+32);
 
-      assert(mid > -32); assert(mid < A.size()+32);
-#ifndef NDEBUG
-      std::cout << mid << ' ';
-      auto fp = IBase::Float<IBase::Precompute>(A);
-      auto d2 = (int)fp(x, left, right) - mid;
-      if (d2*d2 > 1)
-        printf("%lu, %lu, %lu = %lu ~ %ld\n", x, left, right, mid, d2);
-#endif
-      if (mid+guardOff >= right) return A[Linear::reverse(&A[0], right, x)];
-      else if (mid-guardOff <= left) return A[Linear::forward(&A[0], left, x)];
-      assert(mid >= left); assert(mid <= right);
+      if (next+guardOff >= right) {
+        auto r = A[Linear::reverse(&A[0], right, x)];
+        IACA_END
+        return r;
+      } else if (next-guardOff <= left) {
+        auto r = A[Linear::forward(&A[0], left, x)];
+        IACA_END
+        return r;
+      }
+      assert(next >= left); assert(next <= right);
+    }
+    // linear search base case
+    if (A[next] >= x) {
+      return A[Linear::reverse(&A[0], next, x)];
+    } else {
+      return A[Linear::forward(&A[0], next + 1, x)];
+    }
+  }
+};
+
+template <int nIter = IBase::Recurse
+         ,class Interpolate = IBase::Lut<>
+         ,int guardOff=32
+         >
+class InterpolationSlope : public IBase {
+  using Linear = LinearUnroll<>;
+
+  Interpolate interpolate;
+
+  public:
+  InterpolationSlope(const PaddedVector<>& v) : IBase(v), interpolate(A) { }
+
+  // TODO replace with flatten?
+  __attribute__((always_inline))
+  Key operator()(const Key x) {
+    assert(A.size() >= 1);
+    // set bounds and do first interpolation
+    Index left = 0, right = A.size() - 1, next = interpolate(x);
+    for (int i = 1; (nIter < 0 ? true : i < nIter); i++) {
+      IACA_START
+
+      // update bounds and check for match
+      if (A[next] < x) left = next+1;
+      else if (A[next] > x) right = next-1;
+      else return A[next];
+      if (left == right) return A[left];
+
+      // next interpolation
+      assert(left<right);
+      assert(left >= 0); assert(right < A.size());
+      next = interpolate(x, next);
+
+      assert(next > -A.get_pad()); assert(next < A.size()+A.get_pad());
+      if (nIter == IBase::Recurse) { 
+        // apply guards
+        if (next+guardOff >= right) return A[Linear::reverse(&A[0], right, x)];
+        else if (next-guardOff <= left) return A[Linear::forward(&A[0], left, x)];
+        assert(next >= left); assert(next <= right);
+      }
+    }
+    // linear search base case
+    if (A[next] >= x) {
+      return A[Linear::reverse(&A[0], next, x)];
+    } else {
+      return A[Linear::forward(&A[0], next + 1, x)];
     }
 
     return 0; 
   }
 };
 
-using InterpolationNaive = Interpolation<IBase::Float<>,IBase::Recurse, LinearUnroll<>>;
-using InterpolationPrecompute = Interpolation<IBase::Float<IBase::Precompute>,IBase::Recurse,LinearUnroll<>>;
-using InterpolationRecurseGuard = Interpolation<IBase::Float<IBase::Precompute>, IBase::Recurse, LinearUnroll<>, 32>;
-using i_slope = InterpolateSlope<>;
-using InterpolationRecurse3 = Interpolation<IBase::Float<IBase::Precompute>, 3>;
-using InterpolationRecurseLut = Interpolation<IBase::Lut<>, IBase::Recurse, LinearUnroll<>, 32>;
-using InterpolationLinearFp = Interpolation<IBase::Float<IBase::Precompute>>;
-using InterpolationLinear = Interpolation<>;
-using i_seq_intercept = Interpolation<IBase::Lut<IBase::Intercept>>;
-using i_simd = Interpolation<IBase::Lut<>, 1, LinearSIMD<>>;
-using i_exp_seq = Interpolation<IBase::Exp>;
-using i_exp = Interpolation<IBase::Exp, IBase::Recurse>;
-//using InterpolationIDiv = Interpolation<IBase::IntDiv> ;
+/*
+ * i_naive : Naive-IS
+ * i_opt : Optimized-IS
+ * i_seq : Interpolation-Sequential
+ * i_recompute : Don't re-use slope
+ * i_no_guard : guard = 0
+ * i_fp : use FP division
+ * i_idiv : use int division
+ */
+using i_naive = Interpolation<IBase::Float<false>, IBase::Recurse, 0>;
+using i_opt = InterpolationSlope<>;
+using i_seq = InterpolationSlope<1>;
+using i_recompute = Interpolation<>;
+using i_no_guard = InterpolationSlope<IBase::Recurse, IBase::Lut<>, 0>;
+using i_fp = InterpolationSlope<IBase::Recurse, IBase::Float<>>;
+using i_idiv = InterpolationSlope<IBase::Recurse, IBase::IntDiv>;
+using i_exp_seq = Interpolation<IBase::Exp, 1, 32, true>;
+using i_exp = Interpolation<IBase::Exp, IBase::Recurse, 32, true>;
 #endif

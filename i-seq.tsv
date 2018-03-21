@@ -1,7 +1,10 @@
 n	distribution param	thread	algorithm
-1000	uniform	42	1	i-slope
+1000	uniform	42	1	i-naive
+1000	uniform	42	1	i-opt
 1000	uniform	42	1	i-seq
-1000	fal	1.05	1	i-slope
-1000	fal	1.05	1	i-seq
-1000	cfal	1.05	1	i-slope
-1000	cfal	1.05	1	i-seq
+1000	uniform	42	1	i-recompute
+1000	uniform	42	1	i-no-guard
+1000	uniform	42	1	i-fp
+1000	uniform	42	1	i-idiv
+1000	uniform	42	1	i-exp-seq
+1000	uniform	42	1	i-exp
