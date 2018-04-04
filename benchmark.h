@@ -195,7 +195,7 @@ struct Run {
         if (query_index + sample_size > queries.size()) {
           if (sample_index == n_samples) {
             if (!infinite_repeat || valSum != inputC.sum) break;
-            valSum = n_samples = 0;
+            valSum = sample_index = 0;
           }
           query_index = 0;
         }
