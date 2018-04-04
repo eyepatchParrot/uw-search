@@ -1,4 +1,13 @@
 n	distribution param	thread	algorithm
+10000000	uniform	42	1	i-opt
+10000000	uniform	42	1	i-opt
+10000000	uniform	42	1	i-opt
+10000000	uniform	42	1	i-opt
+10000000	uniform	42	1	i-opt
+10000000	uniform	42	1	i-opt
+10000000	uniform	42	1	i-opt
+10000000	uniform	42	1	i-opt
+10000000	uniform	42	1	i-opt
 1000	uniform	42	1	i-naive
 1000	uniform	42	1	i-opt
 1000	uniform	42	1	i-seq

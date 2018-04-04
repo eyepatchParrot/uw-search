@@ -5,9 +5,23 @@
 #include "util.h"
 #include <limits>
 
-template <int pad=32>
+template <int payloadSize=128-sizeof(Key), int pad=32>
 class PaddedVector {
-  std::vector<Key> v;
+  using Payload = char[payloadSize];
+  struct Record {
+    Key k;
+    Payload p;
+    Record() {}
+    Record(Key k) : k(k) {}
+    bool operator<(const Record& r) const {
+      return k < r.k;
+    }
+    operator Key() const {
+      return k;
+    }
+  };
+
+  std::vector<Record> v;
 
   public:
   PaddedVector(size_t n) : v(n + 2*pad) {
@@ -26,12 +40,12 @@ class PaddedVector {
   Key& operator[](long ix) {
     // allow some inaccuracy to reduce needed precision
     assert(ix >= -pad); assert(ix <= size() + pad);
-    return v[ix+pad]; 
+    return v[ix+pad].k; 
   }
   const Key& operator[](long ix) const {
     // allow some inaccuracy to reduce needed precision
     assert(ix >= -pad); assert(ix <= size() + pad);
-    return v[ix+pad]; 
+    return v[ix+pad].k; 
   }
   auto begin() { return v.begin() + pad; }
   auto end() { return v.end() - pad; };
