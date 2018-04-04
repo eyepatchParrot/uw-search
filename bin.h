@@ -85,8 +85,8 @@ class Binary {
       if (MIN_EQ_SZ == 1) return A[left];
 
       Index guess = left + n/2;
-      if (A[guess] < x) return A[Linear::forward(&A[0],guess+1,x)];
-      else return A[Linear::reverse(&A[0],guess,x)];
+      if (A[guess] < x) return A[Linear::forward(A, guess+1,x)];
+      else return A[Linear::reverse(A,guess,x)];
     }
 };
 

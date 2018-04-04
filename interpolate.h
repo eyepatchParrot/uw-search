@@ -161,7 +161,7 @@ class Interpolation : public IBase {
       else if (A[next] > x) right = next-1;
       else return A[next];
       if (min_width) {
-        if (right - left <= guardOff) return A[Linear::reverse(&A[0], right, x)];
+        if (right - left <= guardOff) return A[Linear::reverse(A, right, x)];
       } else if (left == right) return A[left];
 
       assert(left<right);
@@ -170,11 +170,11 @@ class Interpolation : public IBase {
       assert(next > -32); assert(next < A.size()+32);
 
       if (next+guardOff >= right) {
-        auto r = A[Linear::reverse(&A[0], right, x)];
+        auto r = A[Linear::reverse(A, right, x)];
         IACA_END
         return r;
       } else if (next-guardOff <= left) {
-        auto r = A[Linear::forward(&A[0], left, x)];
+        auto r = A[Linear::forward(A, left, x)];
         IACA_END
         return r;
       }
@@ -182,9 +182,9 @@ class Interpolation : public IBase {
     }
     // linear search base case
     if (A[next] >= x) {
-      return A[Linear::reverse(&A[0], next, x)];
+      return A[Linear::reverse(A, next, x)];
     } else {
-      return A[Linear::forward(&A[0], next + 1, x)];
+      return A[Linear::forward(A, next + 1, x)];
     }
   }
 };
@@ -224,16 +224,16 @@ class InterpolationSlope : public IBase {
       assert(next > -A.get_pad()); assert(next < A.size()+A.get_pad());
       if (nIter == IBase::Recurse) { 
         // apply guards
-        if (next+guardOff >= right) return A[Linear::reverse(&A[0], right, x)];
-        else if (next-guardOff <= left) return A[Linear::forward(&A[0], left, x)];
+        if (next+guardOff >= right) return A[Linear::reverse(A, right, x)];
+        else if (next-guardOff <= left) return A[Linear::forward(A, left, x)];
         assert(next >= left); assert(next <= right);
       }
     }
     // linear search base case
     if (A[next] >= x) {
-      return A[Linear::reverse(&A[0], next, x)];
+      return A[Linear::reverse(A, next, x)];
     } else {
-      return A[Linear::forward(&A[0], next + 1, x)];
+      return A[Linear::forward(A, next + 1, x)];
     }
 
     return 0; 
