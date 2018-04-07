@@ -232,6 +232,7 @@ struct Run {
       {"i-idiv", measure<i_idiv>},
       {"i-exp-seq", measure<i_exp_seq>},
       {"i-exp", measure<i_exp>},
+      {"i-hyp", measure<Interpolation3>},
 
         //{"b", measure<Binary<>>},
         //{"b-cond", measure<BinaryCond>},

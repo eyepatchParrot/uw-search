@@ -115,6 +115,72 @@ def exp_next(points, y_star):
     }
   };
 
+  struct Hyp {
+    Hyp(const PaddedVector<>& a) : A(a), y_1(A[A.size()>>1]
+        ), diff_y_01(A[0] - y_1
+          ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
+            diff_y_01 / (double)(y_1 - A[A.size()-1])
+            ), diff_scale(A[0] - a_0 * A[A.size()-1]
+              ), d(A.size()>>1
+                ), d_a((1.0+a_0) * d)
+    {}
+
+    const PaddedVector<>& A;
+    const double y_1, diff_y_01, a_0, diff_scale, d, d_a;
+/*
+def hyp_next(points, y_star):
+    x, y = zip(*points)
+    y = [i - y_star for i in y]
+    d = [x[1] - x[0]]
+    assert((d[0] - x[2] + x[1])**2<4)
+    a = (y[0] - y[1]) / (y[1] - y[2])
+    b = (y[0] - y[1]) / (y[0] - a * y[1])
+    return x[1] + d[0] * y[1] * (a + 1) / (y[0] - a * y[2])
+*/
+    Index operator()(const Key x, const Index x_0, const Index x_2) {
+      const Index x_1 = (x_0 + x_2) >> 1;
+      auto d = x_1 - x_0;
+      double y_0 = A[x_0] - x, y_1 = A[x_1] - x, y_2 = A[x_2] - x;
+      auto a = (y_0 - y_1) / (y_1 - y_2);
+      return x_1 + d * y_1 * (a + 1.0) / (y_0 - a * y_2);
+    }
+
+    Index operator()(const Key x) {
+      return d + d_a * (y_1 - x) / (diff_scale - x * (a_0 + 1.0));
+    }
+  };
+
+  struct Hyp3 {
+    Hyp3(const PaddedVector<>& a) : A(a), y_1(A[A.size()>>1]
+        ), diff_y_01(A[0] - y_1
+          ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
+            diff_y_01 / (double)(y_1 - A[A.size()-1])
+            ), diff_scale(A[0] - a_0 * A[A.size()-1]
+              ), d(A.size()>>1
+                ), d_a((1.0+a_0) * d)
+    {}
+    const PaddedVector<>& A;
+    const double y_1, diff_y_01, a_0, diff_scale, d, d_a;
+    /*
+     * def hyp3(points, y_star):
+         x, y = zip(*[(x, y - y_star) for x, y in points])
+         error = (x[1] - x[2]) * (x[1] - x[0]) * y[1] * (y[2] - y[0]) / (
+             (x[1] - x[2]) * (y[0] - y[1]) * y[2] + (x[1] - x[0]) * (y[1] - y[2]) * y[0])
+         return x[1] + error
+     */
+    Index operator()(const Key y, const Index x_0, const Index x_1,
+        const Index x_2) const {
+      double y_0 = A[x_0] - y, y_1 = A[x_1] - y, y_2 = A[x_2] - y,
+        error = y_1 * (x_1 - x_2) * (x_1 - x_0) * (y_2 - y_0) /
+          (y_2 * (x_1 - x_2) * (y_0 - y_1) + y_0 * (x_1 - x_0) * (y_1 - y_2));
+      return x_1 + (Index)error;
+    }
+
+    Index operator()(const Key x) {
+      return d + d_a * (y_1 - x) / (diff_scale - x * (a_0 + 1.0));
+    }
+  };
+
   struct IntDiv {
     IntDiv(const PaddedVector<>& a) : A(a),
     i_range_width((A.back() - A[0]) / (A.size() - 1)) {}
@@ -137,6 +203,66 @@ protected:
   const PaddedVector<>& A;
 
   IBase(const PaddedVector<>& v) : A(v) {}
+};
+
+class Interpolation3 : public IBase {
+  using Interpolate = IBase::Hyp3;
+  using Linear = LinearUnroll<>;
+  static constexpr int nIter = IBase::Recurse;
+  static constexpr int guardOff=64;
+  static constexpr bool min_width = false;
+
+  Interpolate interpolate;
+
+  __attribute__((always_inline))
+  Key linear_search(const Key x, Index y) const {
+    if (A[y] >= x) {
+      return A[Linear::reverse(A, y, x)];
+    } else {
+      return A[Linear::forward(A, y + 1, x)];
+    }
+  }
+
+  public:
+  Interpolation3(const PaddedVector<>& v) : IBase(v), interpolate(A) { 
+    assert(A.size() >= 1);
+  }
+
+  __attribute__((always_inline))
+  Key operator()(const Key x) {
+    Index left = 0, right = A.size() - 1, next_1 = A.size()>>1,
+          next_2 = interpolate(x);
+    for (int i = 1; nIter < 0 || i < nIter; i++) {
+      if (next_2 - next_1 < guardOff && next_2 - next_1 > -guardOff) return linear_search(x, next_2);
+      assert(next_1 >= left); assert(next_1 <= right); assert(next_2 >= left);
+      assert(next_2 <= right); assert(next_1 != next_2);
+      if (next_1 < next_2) {
+        assert(A[next_1] <= x); // f(x) <= f(x') ==> x <= x'
+        left = next_1;
+      } else {
+        assert(A[next_1] >= x); // f(x) >= f(x') ==> x >= x'
+        right = next_1;
+      }
+      if (next_2+guardOff >= right) {
+        auto r = A[Linear::reverse(A, right, x)];
+        IACA_END
+        return r;
+      } else if (next_2-guardOff <= left) {
+        auto r = A[Linear::forward(A, left, x)];
+        IACA_END
+        return r;
+      }
+      next_1 = next_2;
+
+      assert(left<right); assert(left >= 0); assert(right < A.size());
+      assert(next_1 != left); assert(next_1 != right);
+
+      next_2 = interpolate(x, left, next_1, right);
+
+      assert(next_2 >= left); assert(next_2 <= right);
+    }
+    return linear_search(x, next_2);
+  }
 };
 
 template <class Interpolate = IBase::Lut<>
