@@ -6,10 +6,10 @@
 #include "util.h"
 //#include <iacaMarks.h>
 
-template <int n=8>
+template <class Vector, int n=8>
 class LinearUnroll {
   template <bool reverse=false>
-    static int64_t linUnroll(const PaddedVector<>& a, int64_t m, Key k) {
+    static int64_t linUnroll(const Vector& a, int64_t m, Key k) {
       for (;;m = (reverse?m-n:m+n)) {
         for (int i = 0; i < n; i++) {
           if (reverse?(a[m-i]<=k):(a[m+i]>=k)){
@@ -19,10 +19,10 @@ class LinearUnroll {
       }
     }
 public:
-    static int64_t forward(const PaddedVector<>& a, const int64_t guessIx, const Key x) {
+    static int64_t forward(const Vector& a, const int64_t guessIx, const Key x) {
       return linUnroll<false>(a, guessIx, x); 
     }
-    static int64_t reverse(const PaddedVector<>& a, const int64_t guessIx, const Key x) {
+    static int64_t reverse(const Vector& a, const int64_t guessIx, const Key x) {
       return linUnroll<true>(a, guessIx, x);
     }
 };

@@ -5,9 +5,10 @@
 #include "util.h"
 #include <limits>
 
-template <int payloadSize=128-sizeof(Key), int pad=32>
+template <int record_bytes=128, int pad=32>
 class PaddedVector {
-  using Payload = char[payloadSize];
+  static constexpr int payload_bytes = record_bytes - sizeof(Key);
+  using Payload = char[payload_bytes];
   struct Record {
     Key k;
     Payload p;
