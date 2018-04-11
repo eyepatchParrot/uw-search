@@ -248,8 +248,7 @@ struct Run {
           {"i-no-guard", measure2<i_no_guard(record_bytes), record_bytes>},
           {"i-fp", measure2<i_fp(record_bytes), record_bytes>},
           {"i-idiv", measure2<i_idiv(record_bytes), record_bytes>},
-          {"i-exp-seq", measure2<i_exp_seq(record_bytes), record_bytes>},
-          {"i-exp", measure2<i_exp(record_bytes), record_bytes>},
+          {"i-hyp", measure2<i_hyp(record_bytes), record_bytes>},
           {"b-lin", measure2<b_lin(record_bytes), record_bytes>},
       };
       auto ns = fns[run.name](run, input);

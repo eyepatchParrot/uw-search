@@ -118,7 +118,7 @@ def exp_next(points, y_star):
   };
 
   struct Hyp {
-    Hyp(const PaddedVector<>& a) : A(a), y_1(A[A.size()>>1]
+    Hyp(const Vector& a) : A(a), y_1(A[A.size()>>1]
         ), diff_y_01(A[0] - y_1
           ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
             diff_y_01 / (double)(y_1 - A[A.size()-1])
@@ -127,7 +127,7 @@ def exp_next(points, y_star):
                 ), d_a((1.0+a_0) * d)
     {}
 
-    const PaddedVector<>& A;
+    const Vector& A;
     const double y_1, diff_y_01, a_0, diff_scale, d, d_a;
 /*
 def hyp_next(points, y_star):
@@ -153,7 +153,7 @@ def hyp_next(points, y_star):
   };
 
   struct Hyp3 {
-    Hyp3(const PaddedVector<>& a) : A(a), y_1(A[A.size()>>1]
+    Hyp3(const Vector& a) : A(a), y_1(A[A.size()>>1]
         ), diff_y_01(A[0] - y_1
           ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
             diff_y_01 / (double)(y_1 - A[A.size()-1])
@@ -161,7 +161,7 @@ def hyp_next(points, y_star):
               ), d(A.size()>>1
                 ), d_a((1.0+a_0) * d)
     {}
-    const PaddedVector<>& A;
+    const Vector& A;
     const double y_1, diff_y_01, a_0, diff_scale, d, d_a;
     /*
      * def hyp3(points, y_star):
@@ -204,13 +204,18 @@ def hyp_next(points, y_star):
 protected:
   const Vector& A;
 
-  IBase(const PaddedVector<>& v) : A(v) {}
+  IBase(const Vector& v) : A(v) {}
 };
 
-class Interpolation3 : public IBase {
-  using Interpolate = IBase::Hyp3;
-  using Linear = LinearUnroll<>;
-  static constexpr int nIter = IBase::Recurse;
+template <int record_bytes>
+class Interpolation3 : public IBase<record_bytes> {
+  using Super = IBase<record_bytes>;
+  using Vector = typename Super::Vector;
+  using typename Super::Index;
+  using Super::A;
+  using Interpolate = typename Super::Hyp3;
+  using Linear = LinearUnroll<Vector>;
+  static constexpr int nIter = Super::Recurse;
   static constexpr int guardOff=64;
   static constexpr bool min_width = false;
 
@@ -226,7 +231,7 @@ class Interpolation3 : public IBase {
   }
 
   public:
-  Interpolation3(const PaddedVector<>& v) : IBase(v), interpolate(A) { 
+  Interpolation3(const Vector& v) : Super(v), interpolate(A) { 
     assert(A.size() >= 1);
   }
 
@@ -267,8 +272,9 @@ class Interpolation3 : public IBase {
   }
 };
 
-template <class Interpolate = IBase::Lut<>
-         ,int nIter = IBase::Recurse
+template <int record_bytes
+         ,class Interpolate = typename IBase<record_bytes>::template Lut<>
+         ,int nIter = IBase<record_bytes>::Recurse
          ,int guardOff=32
          ,bool min_width = false
          >
@@ -388,13 +394,12 @@ class InterpolationSlope : public IBase<record_bytes> {
  * i_fp : use FP division
  * i_idiv : use int division
  */
-#define i_naive(PAYLOAD) Interpolation<PAYLOAD, typename IBase<PAYLOAD>::template Float<false>, IBase<PAYLOAD>::Recurse, 0>
-#define i_opt(PAYLOAD) InterpolationSlope<PAYLOAD>
-#define i_seq(PAYLOAD) InterpolationSlope<PAYLOAD, 1>
-#define i_recompute(PAYLOAD) Interpolation<PAYLOAD>
-#define i_no_guard(PAYLOAD) InterpolationSlope<PAYLOAD, IBase<PAYLOAD>::Recurse, typename IBase<PAYLOAD>::template Lut<>, 0>
-#define i_fp(PAYLOAD) InterpolationSlope<PAYLOAD, IBase<PAYLOAD>::Recurse, typename IBase<PAYLOAD>::template Float<>>
-#define i_idiv(PAYLOAD) InterpolationSlope<PAYLOAD, IBase<PAYLOAD>::Recurse, typename IBase<PAYLOAD>::IntDiv>
-#define i_exp_seq(PAYLOAD) Interpolation<PAYLOAD, typename IBase<PAYLOAD>::Exp, 1, 32, true>
-#define i_exp(PAYLOAD) Interpolation<PAYLOAD, typename IBase<PAYLOAD>::Exp, IBase<PAYLOAD>::Recurse, 32, true>
+#define i_naive(RECORD) Interpolation<RECORD, typename IBase<RECORD>::template Float<false>, IBase<RECORD>::Recurse, 0>
+#define i_opt(RECORD) InterpolationSlope<RECORD>
+#define i_seq(RECORD) InterpolationSlope<RECORD, 1>
+#define i_recompute(RECORD) Interpolation<RECORD>
+#define i_no_guard(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>, 0>
+#define i_fp(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Float<>>
+#define i_idiv(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::IntDiv>
+#define i_hyp(RECORD) Interpolation3<RECORD>
 #endif
