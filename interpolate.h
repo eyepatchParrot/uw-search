@@ -295,11 +295,11 @@ class Interpolation : public IBase {
       next = interpolate(x, left, right);
       assert(next > -32); assert(next < A.size()+32);
 
-      if (next+guardOff >= right) {
+      if (guardOff >= 0 && next+guardOff >= right) {
         auto r = A[Linear::reverse(A, right, x)];
         IACA_END
         return r;
-      } else if (next-guardOff <= left) {
+      } else if (guardOff >= 0 && next-guardOff <= left) {
         auto r = A[Linear::forward(A, left, x)];
         IACA_END
         return r;
@@ -350,8 +350,11 @@ class InterpolationSlope : public IBase {
       assert(next > -A.get_pad()); assert(next < A.size()+A.get_pad());
       if (nIter == IBase::Recurse) { 
         // apply guards
-        if (next+guardOff >= right) return A[Linear::reverse(A, right, x)];
-        else if (next-guardOff <= left) return A[Linear::forward(A, left, x)];
+        if (guardOff == -1) next = std::min(std::max(left, next), right);
+        else {
+          if (next+guardOff >= right) return A[Linear::reverse(A, right, x)];
+          else if (next-guardOff <= left) return A[Linear::forward(A, left, x)];
+        }
         assert(next >= left); assert(next <= right);
       }
     }
@@ -379,7 +382,7 @@ using i_naive = Interpolation<IBase::Float<false>, IBase::Recurse, 0>;
 using i_opt = InterpolationSlope<>;
 using i_seq = InterpolationSlope<1>;
 using i_recompute = Interpolation<>;
-using i_no_guard = InterpolationSlope<IBase::Recurse, IBase::Lut<>, 0>;
+using i_no_guard = InterpolationSlope<IBase::Recurse, IBase::Lut<>, -1>;
 using i_fp = InterpolationSlope<IBase::Recurse, IBase::Float<>>;
 using i_idiv = InterpolationSlope<IBase::Recurse, IBase::IntDiv>;
 using i_exp_seq = Interpolation<IBase::Exp, 1, 32, true>;
