@@ -242,7 +242,7 @@ struct Run {
       using Fn = std::vector<double>(Run&, const InputBase&);
       static std::unordered_map<std::string, Fn*> fns{
         {"i-naive", measure2<i_naive(record_bytes), record_bytes>},
-          {"i-opt", measure2<i_opt(record_bytes), record_bytes>},
+          {"i-opt", measure2<i_opt(record_bytes, 32), record_bytes>},
           {"i-seq", measure2<i_seq(record_bytes), record_bytes>},
           {"i-recompute", measure2<i_recompute(record_bytes), record_bytes>},
           {"i-no-guard", measure2<i_no_guard(record_bytes), record_bytes>},
@@ -250,6 +250,12 @@ struct Run {
           {"i-idiv", measure2<i_idiv(record_bytes), record_bytes>},
           {"i-hyp", measure2<i_hyp(record_bytes), record_bytes>},
           {"b-lin", measure2<b_lin(record_bytes), record_bytes>},
+          {"i-opt-0", measure2<i_opt(record_bytes, 0), record_bytes>},
+          {"i-opt-8", measure2<i_opt(record_bytes, 8), record_bytes>},
+          {"i-opt-16", measure2<i_opt(record_bytes, 16), record_bytes>},
+          {"i-opt-32", measure2<i_opt(record_bytes, 32), record_bytes>},
+          {"i-opt-64", measure2<i_opt(record_bytes, 64), record_bytes>},
+          {"i-opt-128", measure2<i_opt(record_bytes, 128), record_bytes>},
       };
       auto ns = fns[run.name](run, input);
       return ns;

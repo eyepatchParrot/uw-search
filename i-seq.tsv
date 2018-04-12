@@ -1,4 +1,7 @@
 n	distribution	param	thread	algorithm	record
-1000	uniform	42	1	i-opt	8
-1000	uniform	42	1	i-opt	32
-1000	uniform	42	1	i-opt	128
+1000	uniform	42	1	i-opt-0	8
+1000	uniform	42	1	i-opt-8	8
+1000	uniform	42	1	i-opt-16	8
+1000	uniform	42	1	i-opt-32	8
+1000	uniform	42	1	i-opt-64	8
+1000	uniform	42	1	i-opt-128	8

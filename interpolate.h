@@ -398,7 +398,7 @@ class InterpolationSlope : public IBase<record_bytes> {
  * i_idiv : use int division
  */
 #define i_naive(RECORD) Interpolation<RECORD, typename IBase<RECORD>::template Float<false>, IBase<RECORD>::Recurse, -1>
-#define i_opt(RECORD) InterpolationSlope<RECORD>
+#define i_opt(RECORD, GUARD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>, GUARD>
 #define i_seq(RECORD) InterpolationSlope<RECORD, 1>
 #define i_recompute(RECORD) Interpolation<RECORD>
 #define i_no_guard(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>, -1>
