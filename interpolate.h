@@ -21,8 +21,10 @@
 #define IACA_END 
 #endif
 
+template <int record_bytes>
 class IBase {
 public:
+  using Vector = PaddedVector<record_bytes>;
   using Index = int64_t;
 
   static constexpr int Recurse = -1;
@@ -32,12 +34,12 @@ public:
   template <bool fold=false>
   struct Lut {
     // maybe want a.size() since we truncate
-    Lut(const PaddedVector<>& a) : A(a), lgScale(std::max(0L, lg(A.size() - 1UL) + lg((uint64_t)A.back()) - 64L)) {
+    Lut(const Vector& a) : A(a), lgScale(std::max(0L, lg(A.size() - 1UL) + lg((uint64_t)A.back()) - 64L)) {
       if (fold) divisors /= (A.size() - 1);
       d_range_width = DivLut::Gen(A.back() - A[0]) / (A.size() - 1);
     }
 
-    const PaddedVector<>& A;
+    const Vector& A;
     int lgScale;
     DivLut::Divisor d_range_width;
     DivLut divisors;
@@ -54,10 +56,10 @@ public:
   };
   template <bool precompute=true>
     struct Float {
-      Float(const PaddedVector<>& a) : A(a), f_aL(A[0]),
+      Float(const Vector& a) : A(a), f_aL(A[0]),
       f_width_range( (double)(A.size() - 1) / (double)(A.back() - A[0])) {}
 
-      const PaddedVector<>& A;
+      const Vector& A;
       const double f_aL;
       const double f_width_range;
 
@@ -77,7 +79,7 @@ public:
     };
 
   struct Exp {
-    Exp(const PaddedVector<>& a) : A(a), y_1(A[A.size()>>1]
+    Exp(const Vector& a) : A(a), y_1(A[A.size()>>1]
         ), diff_y_01(A[0] - y_1
           ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
             diff_y_01 / (double)(y_1 - A[A.size()-1])
@@ -86,7 +88,7 @@ public:
                 ), d(A.size()>>1)
     {}
 
-    const PaddedVector<>& A;
+    const Vector& A;
     const double y_1, diff_y_01, a_0, lg_a_0, diff_scale, d;
 /*
 def exp_next(points, y_star):
@@ -116,7 +118,7 @@ def exp_next(points, y_star):
   };
 
   struct Hyp {
-    Hyp(const PaddedVector<>& a) : A(a), y_1(A[A.size()>>1]
+    Hyp(const Vector& a) : A(a), y_1(A[A.size()>>1]
         ), diff_y_01(A[0] - y_1
           ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
             diff_y_01 / (double)(y_1 - A[A.size()-1])
@@ -125,7 +127,7 @@ def exp_next(points, y_star):
                 ), d_a((1.0+a_0) * d)
     {}
 
-    const PaddedVector<>& A;
+    const Vector& A;
     const double y_1, diff_y_01, a_0, diff_scale, d, d_a;
 /*
 def hyp_next(points, y_star):
@@ -151,7 +153,7 @@ def hyp_next(points, y_star):
   };
 
   struct Hyp3 {
-    Hyp3(const PaddedVector<>& a) : A(a), y_1(A[A.size()>>1]
+    Hyp3(const Vector& a) : A(a), y_1(A[A.size()>>1]
         ), diff_y_01(A[0] - y_1
           ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
             diff_y_01 / (double)(y_1 - A[A.size()-1])
@@ -159,7 +161,7 @@ def hyp_next(points, y_star):
               ), d(A.size()>>1
                 ), d_a((1.0+a_0) * d)
     {}
-    const PaddedVector<>& A;
+    const Vector& A;
     const double y_1, diff_y_01, a_0, diff_scale, d, d_a;
     /*
      * def hyp3(points, y_star):
@@ -182,10 +184,10 @@ def hyp_next(points, y_star):
   };
 
   struct IntDiv {
-    IntDiv(const PaddedVector<>& a) : A(a),
+    IntDiv(const Vector& a) : A(a),
     i_range_width((A.back() - A[0]) / (A.size() - 1)) {}
 
-    const PaddedVector<>& A;
+    const Vector& A;
     Key i_range_width;
 
     Index operator()(const Key x, const Index left, const Index right) {
@@ -200,15 +202,20 @@ def hyp_next(points, y_star):
   };
 
 protected:
-  const PaddedVector<>& A;
+  const Vector& A;
 
-  IBase(const PaddedVector<>& v) : A(v) {}
+  IBase(const Vector& v) : A(v) {}
 };
 
-class Interpolation3 : public IBase {
-  using Interpolate = IBase::Hyp3;
-  using Linear = LinearUnroll<>;
-  static constexpr int nIter = IBase::Recurse;
+template <int record_bytes>
+class Interpolation3 : public IBase<record_bytes> {
+  using Super = IBase<record_bytes>;
+  using Vector = typename Super::Vector;
+  using typename Super::Index;
+  using Super::A;
+  using Interpolate = typename Super::Hyp3;
+  using Linear = LinearUnroll<Vector>;
+  static constexpr int nIter = Super::Recurse;
   static constexpr int guardOff=64;
   static constexpr bool min_width = false;
 
@@ -224,7 +231,7 @@ class Interpolation3 : public IBase {
   }
 
   public:
-  Interpolation3(const PaddedVector<>& v) : IBase(v), interpolate(A) { 
+  Interpolation3(const Vector& v) : Super(v), interpolate(A) { 
     assert(A.size() >= 1);
   }
 
@@ -265,17 +272,23 @@ class Interpolation3 : public IBase {
   }
 };
 
-template <class Interpolate = IBase::Lut<>
-         ,int nIter = IBase::Recurse
+template <int record_bytes
+         ,class Interpolate = typename IBase<record_bytes>::template Lut<>
+         ,int nIter = IBase<record_bytes>::Recurse
          ,int guardOff=32
          ,bool min_width = false
          >
-class Interpolation : public IBase {
-  using Linear = LinearUnroll<>;
+class Interpolation : public IBase<record_bytes> {
+  using Super = IBase<record_bytes>;
+  using Vector = typename Super::Vector;
+  using typename Super::Index;
+  using Super::A;
+  using Linear = LinearUnroll<Vector>;
+
   Interpolate interpolate;
 
   public:
-  Interpolation(const PaddedVector<>& v) : IBase(v), interpolate(A) { }
+  Interpolation(const Vector& v) : Super(v), interpolate(A) { }
 
   __attribute__((always_inline))
   Key operator()(const Key x) {
@@ -315,17 +328,23 @@ class Interpolation : public IBase {
   }
 };
 
-template <int nIter = IBase::Recurse
-         ,class Interpolate = IBase::Lut<>
+template <int record_bytes
+         ,int nIter = IBase<record_bytes>::Recurse
+         ,class Interpolate = typename IBase<record_bytes>::template Lut<>
          ,int guardOff=32
          >
-class InterpolationSlope : public IBase {
-  using Linear = LinearUnroll<>;
+class InterpolationSlope : public IBase<record_bytes> {
+  using Super = IBase<record_bytes>;
+  using Vector = typename Super::Vector;
+  using typename Super::Index;
+  using Super::A;
+  using Super::Recurse;
+  using Linear = LinearUnroll<Vector>;
 
   Interpolate interpolate;
 
   public:
-  InterpolationSlope(const PaddedVector<>& v) : IBase(v), interpolate(A) { }
+  InterpolationSlope(const Vector& v) : Super(v), interpolate(A) { }
 
   // TODO replace with flatten?
   __attribute__((always_inline))
@@ -348,7 +367,7 @@ class InterpolationSlope : public IBase {
       next = interpolate(x, next);
 
       assert(next > -A.get_pad()); assert(next < A.size()+A.get_pad());
-      if (nIter == IBase::Recurse) { 
+      if (nIter == Recurse) { 
         // apply guards
         if (guardOff == -1) next = std::min(std::max(left, next), right);
         else {
@@ -378,13 +397,12 @@ class InterpolationSlope : public IBase {
  * i_fp : use FP division
  * i_idiv : use int division
  */
-using i_naive = Interpolation<IBase::Float<false>, IBase::Recurse, 0>;
-using i_opt = InterpolationSlope<>;
-using i_seq = InterpolationSlope<1>;
-using i_recompute = Interpolation<>;
-using i_no_guard = InterpolationSlope<IBase::Recurse, IBase::Lut<>, -1>;
-using i_fp = InterpolationSlope<IBase::Recurse, IBase::Float<>>;
-using i_idiv = InterpolationSlope<IBase::Recurse, IBase::IntDiv>;
-using i_exp_seq = Interpolation<IBase::Exp, 1, 32, true>;
-using i_exp = Interpolation<IBase::Exp, IBase::Recurse, 32, true>;
+#define i_naive(RECORD) Interpolation<RECORD, typename IBase<RECORD>::template Float<false>, IBase<RECORD>::Recurse, -1>
+#define i_opt(RECORD) InterpolationSlope<RECORD>
+#define i_seq(RECORD) InterpolationSlope<RECORD, 1>
+#define i_recompute(RECORD) Interpolation<RECORD>
+#define i_no_guard(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>, -1>
+#define i_fp(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Float<>>
+#define i_idiv(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::IntDiv>
+#define i_hyp(RECORD) Interpolation3<RECORD>
 #endif

@@ -17,20 +17,23 @@
 #define IACA_END 
 #endif
 
-template <bool RETURN_EARLY=true
+template <int record_bytes=8
+         ,bool RETURN_EARLY=true
          ,bool TEST_EQ=true
          ,bool FOR=false
          ,bool POW_2=false
          ,int MIN_EQ_SZ=1
          ,typename Index = unsigned long
-         ,class Linear = LinearUnroll<>
          >
 class Binary {
-  const PaddedVector<>& A;
+  using Vector = PaddedVector<record_bytes>;
+  using Linear = LinearUnroll<Vector>;
+
+  const Vector& A;
   int lg_v, lg_min;
 
   public:
-  Binary(const PaddedVector<>& _a) : A(_a) {
+  Binary(const Vector& _a) : A(_a) {
     lg_v=lg_min=0;
     for (auto n = A.size();n > 1; n -= (n/2)) {
       lg_v++;
@@ -90,11 +93,6 @@ class Binary {
     }
 };
 
-using BinaryCond = Binary<false>;
-using BinaryNoEq = Binary<false, false>;
-using BinaryFor = Binary<false, true, true>;
-using BinaryNoEqFor = Binary<false, false, true>;
-using BinaryPow = Binary<false, false, true, true>;
-using BinaryLin = Binary<false, false, true, true, 32>;
+#define b_lin(PAYLOAD) Binary<PAYLOAD, false, false, true, true, 32>
 
 #endif

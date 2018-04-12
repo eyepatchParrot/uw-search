@@ -1,10 +1,4 @@
-n	distribution param	thread	algorithm
-1000	uniform	42	1	i-naive
-1000	uniform	42	1	i-opt
-1000	uniform	42	1	i-seq
-1000	uniform	42	1	i-recompute
-1000	uniform	42	1	i-no-guard
-1000	uniform	42	1	i-fp
-1000	uniform	42	1	i-idiv
-1000	uniform	42	1	i-exp-seq
-1000	uniform	42	1	i-exp
+n	distribution	param	thread	algorithm	record
+1000	uniform	42	1	i-opt	8
+1000	uniform	42	1	i-opt	32
+1000	uniform	42	1	i-opt	128

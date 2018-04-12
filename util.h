@@ -7,6 +7,7 @@
 #include <vector>
 #include <string>
 #include <sstream>
+#include <fstream>
 
 using Key = int64_t;
 using SearchFn = int64_t(const Key*, int64_t, Key);
@@ -60,6 +61,12 @@ std::vector<std::string> split(std::string s, char delim=',') {
 		if (it != s.end()) it++;
 	}
   return v;
+}
+
+auto read_line(std::ifstream& f) {
+  std::string line;
+  std::getline(f, line);
+  return line;
 }
 
 #endif
