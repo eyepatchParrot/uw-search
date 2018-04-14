@@ -248,7 +248,7 @@ struct Run {
           {"i-no-guard", measure2<i_no_guard(record_bytes), record_bytes>},
           {"i-fp", measure2<i_fp(record_bytes), record_bytes>},
           {"i-idiv", measure2<i_idiv(record_bytes), record_bytes>},
-          {"i-hyp", measure2<i_hyp(record_bytes), record_bytes>},
+          {"i-hyp", measure2<i_hyp(record_bytes, 64), record_bytes>},
           {"b-lin", measure2<b_lin(record_bytes), record_bytes>},
           {"i-opt-0", measure2<i_opt(record_bytes, 0), record_bytes>},
           {"i-opt-8", measure2<i_opt(record_bytes, 8), record_bytes>},
@@ -256,6 +256,15 @@ struct Run {
           {"i-opt-32", measure2<i_opt(record_bytes, 32), record_bytes>},
           {"i-opt-64", measure2<i_opt(record_bytes, 64), record_bytes>},
           {"i-opt-128", measure2<i_opt(record_bytes, 128), record_bytes>},
+          {"i-hyp-0", measure2<i_hyp(record_bytes, 0), record_bytes>},
+          {"i-hyp-8", measure2<i_hyp(record_bytes, 8), record_bytes>},
+          {"i-hyp-16", measure2<i_hyp(record_bytes, 16), record_bytes>},
+          {"i-hyp-32", measure2<i_hyp(record_bytes, 32), record_bytes>},
+          {"i-hyp-64", measure2<i_hyp(record_bytes, 64), record_bytes>},
+          {"i-hyp-128", measure2<i_hyp(record_bytes, 128), record_bytes>},
+          {"i-hyp-256", measure2<i_hyp(record_bytes, 256), record_bytes>},
+          {"i-hyp-512", measure2<i_hyp(record_bytes, 512), record_bytes>},
+          {"i-hyp-1024", measure2<i_hyp(record_bytes, 1024), record_bytes>},
       };
       auto ns = fns[run.name](run, input);
       return ns;

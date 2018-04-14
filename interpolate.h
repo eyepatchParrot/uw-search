@@ -34,7 +34,7 @@ public:
   template <bool fold=false>
   struct Lut {
     // maybe want a.size() since we truncate
-    Lut(const Vector& a) : A(a), lgScale(std::max(0L, lg(A.size() - 1UL) + lg((uint64_t)A.back()) - 64L)) {
+    Lut(const Vector& a) : A(a), lgScale(std::max(0L, lg((uint64_t)A.size() - 1UL) + lg((uint64_t)A.back()) - 64L)) {
       if (fold) divisors /= (A.size() - 1);
       d_range_width = DivLut::Gen(A.back() - A[0]) / (A.size() - 1);
     }
@@ -207,7 +207,7 @@ protected:
   IBase(const Vector& v) : A(v) {}
 };
 
-template <int record_bytes>
+template <int record_bytes, int guard_off>
 class Interpolation3 : public IBase<record_bytes> {
   using Super = IBase<record_bytes>;
   using Vector = typename Super::Vector;
@@ -216,7 +216,6 @@ class Interpolation3 : public IBase<record_bytes> {
   using Interpolate = typename Super::Hyp3;
   using Linear = LinearUnroll<Vector>;
   static constexpr int nIter = Super::Recurse;
-  static constexpr int guardOff=64;
   static constexpr bool min_width = false;
 
   Interpolate interpolate;
@@ -240,7 +239,7 @@ class Interpolation3 : public IBase<record_bytes> {
     Index left = 0, right = A.size() - 1, next_1 = A.size()>>1,
           next_2 = interpolate(x);
     for (int i = 1; nIter < 0 || i < nIter; i++) {
-      if (next_2 - next_1 < guardOff && next_2 - next_1 > -guardOff) return linear_search(x, next_2);
+      if (next_2 - next_1 <= guard_off && next_2 - next_1 >= -guard_off) return linear_search(x, next_2);
       assert(next_1 >= left); assert(next_1 <= right); assert(next_2 >= left);
       assert(next_2 <= right); assert(next_1 != next_2);
       if (next_1 < next_2) {
@@ -250,11 +249,11 @@ class Interpolation3 : public IBase<record_bytes> {
         assert(A[next_1] >= x); // f(x) >= f(x') ==> x >= x'
         right = next_1;
       }
-      if (next_2+guardOff >= right) {
+      if (next_2+guard_off >= right) {
         auto r = A[Linear::reverse(A, right, x)];
         IACA_END
         return r;
-      } else if (next_2-guardOff <= left) {
+      } else if (next_2-guard_off <= left) {
         auto r = A[Linear::forward(A, left, x)];
         IACA_END
         return r;
@@ -275,7 +274,7 @@ class Interpolation3 : public IBase<record_bytes> {
 template <int record_bytes
          ,class Interpolate = typename IBase<record_bytes>::template Lut<>
          ,int nIter = IBase<record_bytes>::Recurse
-         ,int guardOff=32
+         ,int guard_off=32
          ,bool min_width = false
          >
 class Interpolation : public IBase<record_bytes> {
@@ -300,7 +299,7 @@ class Interpolation : public IBase<record_bytes> {
       else if (A[next] > x) right = next-1;
       else return A[next];
       if (min_width) {
-        if (right - left <= guardOff) return A[Linear::reverse(A, right, x)];
+        if (right - left <= guard_off) return A[Linear::reverse(A, right, x)];
       } else if (left == right) return A[left];
 
       assert(left<right);
@@ -308,11 +307,11 @@ class Interpolation : public IBase<record_bytes> {
       next = interpolate(x, left, right);
       assert(next > -32); assert(next < A.size()+32);
 
-      if (guardOff >= 0 && next+guardOff >= right) {
+      if (guard_off >= 0 && next+guard_off >= right) {
         auto r = A[Linear::reverse(A, right, x)];
         IACA_END
         return r;
-      } else if (guardOff >= 0 && next-guardOff <= left) {
+      } else if (guard_off >= 0 && next-guard_off <= left) {
         auto r = A[Linear::forward(A, left, x)];
         IACA_END
         return r;
@@ -331,7 +330,7 @@ class Interpolation : public IBase<record_bytes> {
 template <int record_bytes
          ,int nIter = IBase<record_bytes>::Recurse
          ,class Interpolate = typename IBase<record_bytes>::template Lut<>
-         ,int guardOff=32
+         ,int guard_off=32
          >
 class InterpolationSlope : public IBase<record_bytes> {
   using Super = IBase<record_bytes>;
@@ -369,10 +368,10 @@ class InterpolationSlope : public IBase<record_bytes> {
       assert(next > -A.get_pad()); assert(next < A.size()+A.get_pad());
       if (nIter == Recurse) { 
         // apply guards
-        if (guardOff == -1) next = std::min(std::max(left, next), right);
+        if (guard_off == -1) next = std::min(std::max(left, next), right);
         else {
-          if (next+guardOff >= right) return A[Linear::reverse(A, right, x)];
-          else if (next-guardOff <= left) return A[Linear::forward(A, left, x)];
+          if (next+guard_off >= right) return A[Linear::reverse(A, right, x)];
+          else if (next-guard_off <= left) return A[Linear::forward(A, left, x)];
         }
         assert(next >= left); assert(next <= right);
       }
@@ -404,5 +403,5 @@ class InterpolationSlope : public IBase<record_bytes> {
 #define i_no_guard(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>, -1>
 #define i_fp(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Float<>>
 #define i_idiv(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::IntDiv>
-#define i_hyp(RECORD) Interpolation3<RECORD>
+#define i_hyp(RECORD, GUARD) Interpolation3<RECORD, GUARD>
 #endif
