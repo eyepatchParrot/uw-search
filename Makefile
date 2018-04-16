@@ -12,8 +12,9 @@ ifdef SUBSET_SIZE
 	DEFINES += -DSUBSET_SIZE=$(SUBSET_SIZE)
 endif
 
-CXX=clang++
-CXXFLAGS=-fopenmp -ffast-math -Wall -std=c++17 -stdlib=libc++ -fno-omit-frame-pointer -ggdb -march=native $(DEFINES) -I$(HOME)/iaca/include
+CXX=~/clang5/bin/clang++ 
+CHOME=~/clang5
+CXXFLAGS=-fopenmp -ffast-math -Wall -I$(CHOME)/include -L$(CHOME)/lib -std=c++17 -stdlib=libc++ -fno-omit-frame-pointer -ggdb -march=native $(DEFINES) -I$(HOME)/include
 LIB=-I$(HOME)/include -L$(HOME)/lib  -I$(HOME)/iaca/include
 HEADERS=oracle.h interpolate.h benchmark.h bin.h lin.h util.h div.h
 OBJ=
@@ -47,7 +48,7 @@ perf : release
 
 iaca : IACA=1
 iaca: release
-	~/iaca/bin/iaca -mark 0 -arch HSW search
+	iaca -arch HSW search
 
 release : CXXFLAGS += -O3 -DNDEBUG
 release : search
