@@ -15,6 +15,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <numeric>
 #include <random>
@@ -133,6 +134,10 @@ struct Input : public InputBase {
     } else if (distribution == "cfal") {
       auto shape = parse<double>(param[0]);
       fill(cfal(shape));
+    } else if (distribution == "file") {
+      std::ifstream file{param[0]};
+      fill(std::vector<Key>{std::istream_iterator<Key>{file},
+          std::istream_iterator<Key>()});
     } else {
       assert(!"No distribution found.");
     }
