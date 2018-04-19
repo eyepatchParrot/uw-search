@@ -1,10 +1,5 @@
 n	distribution	param	thread	algorithm	record
-1000	uniform	42	1	i-hyp-0	8
-1000	uniform	42	1	i-hyp-8	8
-1000	uniform	42	1	i-hyp-16	8
-1000	uniform	42	1	i-hyp-32	8
-1000	uniform	42	1	i-hyp-64	8
-1000	uniform	42	1	i-hyp-128	8
-1000	uniform	42	1	i-hyp-256	8
-1000	uniform	42	1	i-hyp-512	8
-1000	uniform	42	1	i-hyp-1024	8
+1000000	uniform	42	1	i-opt-8	128
+1000000	uniform	42	1	i-opt-8	128
+1000000	uniform	42	1	i-no-reuse-16	128
+1000000	uniform	42	1	i-no-reuse-16	128

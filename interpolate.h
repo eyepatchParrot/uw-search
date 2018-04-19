@@ -31,35 +31,15 @@ public:
   static constexpr bool Precompute = true;
   static constexpr bool Intercept = true;
 
-  template <bool fold=false>
-  struct Lut {
-    // maybe want a.size() since we truncate
-    Lut(const Vector& a) : A(a), lgScale(std::max(0L, lg((uint64_t)A.size() - 1UL) + lg((uint64_t)A.back()) - 64L)) {
-      if (fold) divisors /= (A.size() - 1);
-      d_range_width = DivLut::Gen(A.back() - A[0]) / (A.size() - 1);
-    }
-
-    const Vector& A;
-    int lgScale;
-    DivLut::Divisor d_range_width;
-    DivLut divisors;
-
-    Index operator()(const Key x, const Index left, const Index right) {
-      if (fold) return left + (Key)((x - A[left]) >> lgScale) / divisors[(A[right] - A[left])];
-      return left + (uint64_t)(((x - A[left]) >> lgScale) * (right-left)) /
-        divisors[(A[right] - A[left]) >> lgScale];
-    }
-    Index operator()(const Key x) { return (uint64_t)(x-A[0]) / d_range_width; }
-    Index operator()(const Key x, const Index mid) {
-      return mid + (Key)(x - A[mid]) / d_range_width;
-    }
-  };
-  template <bool precompute=true>
+  template <bool appx=true>
     struct Float {
-      Float(const Vector& a) : A(a), f_aL(A[0]),
+      Float(const Vector& a) : A(a),
+      d_range_width(DivLut::Gen(A.back() - A[0]) / (A.size() - 1)),
+      f_aL(A[0]),
       f_width_range( (double)(A.size() - 1) / (double)(A.back() - A[0])) {}
 
       const Vector& A;
+      const DivLut::Divisor d_range_width;
       const double f_aL;
       const double f_width_range;
 
@@ -68,89 +48,18 @@ public:
           (double)(A[right] - A[left]) * (double)(right-left);
       }
 
-      Index operator()(const double x, const Index mid) {
-        return mid + (x - (double)A[mid]) * f_width_range;
+      Index operator()(const Key x, const Index mid) {
+        return appx? (x < A[mid] ?
+            mid - (uint64_t)(A[mid] - x) / d_range_width :
+            mid + (uint64_t)(x - A[mid]) / d_range_width) :
+          mid + (Index)(((double)x - (double)A[mid]) * f_width_range);
       }
 
       Index operator()(const Key x) {
-        return precompute? (Index)(((double)x - f_aL) * f_width_range) :
-          (*this)(x, 0, A.size()-1);
+        return appx? (uint64_t)(x-A[0]) / d_range_width :
+          (Index)(((double)x - f_aL) * f_width_range);
       }
     };
-
-  struct Exp {
-    Exp(const Vector& a) : A(a), y_1(A[A.size()>>1]
-        ), diff_y_01(A[0] - y_1
-          ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
-            diff_y_01 / (double)(y_1 - A[A.size()-1])
-            ), lg_a_0(log(a_0)
-              ), diff_scale(A[0] - a_0 * y_1
-                ), d(A.size()>>1)
-    {}
-
-    const Vector& A;
-    const double y_1, diff_y_01, a_0, lg_a_0, diff_scale, d;
-/*
-def exp_next(points, y_star):
-    x, y = zip(*points)
-    y = [i - y_star for i in y]
-    d = [x[1] - x[0]]
-    assert((d[0] - x[2] + x[1])**2<4)
-    a = (y[0] - y[1]) / (y[1] - y[2])
-    b = (y[0] - y[1]) / (y[0] - a * y[1])
-    return x[1] + d[0]  * log(b) / log(a)
-*/
-    Index operator()(const Key x, const Index x_0, const Index x_2) {
-      const Index x_1 = (x_0 + x_2) >> 1;
-      auto d = x_1 - x_0;
-      double y_0 = A[x_0] - x, y_1 = A[x_1] - x, y_2 = A[x_2] - x;
-      auto a = (y_0 - y_1) / (y_1 - y_2),
-           b = (y_0 - y_1) / (y_0 - a * y_1);
-      //std::cerr << a << ' ' << log2(a) << ' ' << b << ' ' << log2(b) << '\n';
-      //std::cerr << d * log(b) / log(a) << ' ' << d * floor(log2(b)) / floor(log2(a)) << '\n';
-      return x_1 + d * log(b) / log(a);
-    }
-
-    Index operator()(const Key x) {
-      auto b_0 = diff_y_01 / (diff_scale + a_0 * x - x); 
-      return d + d * log(b_0) / lg_a_0;
-    }
-  };
-
-  struct Hyp {
-    Hyp(const Vector& a) : A(a), y_1(A[A.size()>>1]
-        ), diff_y_01(A[0] - y_1
-          ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
-            diff_y_01 / (double)(y_1 - A[A.size()-1])
-            ), diff_scale(A[0] - a_0 * A[A.size()-1]
-              ), d(A.size()>>1
-                ), d_a((1.0+a_0) * d)
-    {}
-
-    const Vector& A;
-    const double y_1, diff_y_01, a_0, diff_scale, d, d_a;
-/*
-def hyp_next(points, y_star):
-    x, y = zip(*points)
-    y = [i - y_star for i in y]
-    d = [x[1] - x[0]]
-    assert((d[0] - x[2] + x[1])**2<4)
-    a = (y[0] - y[1]) / (y[1] - y[2])
-    b = (y[0] - y[1]) / (y[0] - a * y[1])
-    return x[1] + d[0] * y[1] * (a + 1) / (y[0] - a * y[2])
-*/
-    Index operator()(const Key x, const Index x_0, const Index x_2) {
-      const Index x_1 = (x_0 + x_2) >> 1;
-      auto d = x_1 - x_0;
-      double y_0 = A[x_0] - x, y_1 = A[x_1] - x, y_2 = A[x_2] - x;
-      auto a = (y_0 - y_1) / (y_1 - y_2);
-      return x_1 + d * y_1 * (a + 1.0) / (y_0 - a * y_2);
-    }
-
-    Index operator()(const Key x) {
-      return d + d_a * (y_1 - x) / (diff_scale - x * (a_0 + 1.0));
-    }
-  };
 
   struct Hyp3 {
     Hyp3(const Vector& a) : A(a), y_1(A[A.size()>>1]
@@ -208,7 +117,7 @@ protected:
 };
 
 template <int record_bytes, int guard_off>
-class Interpolation3 : public IBase<record_bytes> {
+class i_hyp : public IBase<record_bytes> {
   using Super = IBase<record_bytes>;
   using Vector = typename Super::Vector;
   using typename Super::Index;
@@ -230,7 +139,7 @@ class Interpolation3 : public IBase<record_bytes> {
   }
 
   public:
-  Interpolation3(const Vector& v) : Super(v), interpolate(A) { 
+  i_hyp(const Vector& v) : Super(v), interpolate(A) { 
     assert(A.size() >= 1);
   }
 
@@ -272,9 +181,9 @@ class Interpolation3 : public IBase<record_bytes> {
 };
 
 template <int record_bytes
-         ,class Interpolate = typename IBase<record_bytes>::template Lut<>
+         ,class Interpolate = typename IBase<record_bytes>::template Float<>
          ,int nIter = IBase<record_bytes>::Recurse
-         ,int guard_off=32
+         ,int guard_off=16
          ,bool min_width = false
          >
 class Interpolation : public IBase<record_bytes> {
@@ -329,8 +238,8 @@ class Interpolation : public IBase<record_bytes> {
 
 template <int record_bytes
          ,int nIter = IBase<record_bytes>::Recurse
-         ,class Interpolate = typename IBase<record_bytes>::template Lut<>
-         ,int guard_off=32
+         ,class Interpolate = typename IBase<record_bytes>::template Float<>
+         ,int guard_off=8
          >
 class InterpolationSlope : public IBase<record_bytes> {
   using Super = IBase<record_bytes>;
@@ -397,11 +306,13 @@ class InterpolationSlope : public IBase<record_bytes> {
  * i_idiv : use int division
  */
 #define i_naive(RECORD) Interpolation<RECORD, typename IBase<RECORD>::template Float<false>, IBase<RECORD>::Recurse, -1>
-#define i_opt(RECORD, GUARD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>, GUARD>
+#define i_opt(RECORD, GUARD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Float<>, GUARD>
 #define i_seq(RECORD) InterpolationSlope<RECORD, 1>
-#define i_recompute(RECORD) Interpolation<RECORD>
+#define i_no_reuse(RECORD, GUARD) Interpolation<RECORD, typename IBase<record_bytes>::template Float<>, IBase<record_bytes>::Recurse, GUARD>
 #define i_no_guard(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>, -1>
-#define i_fp(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Float<>>
+#define i_fp(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Float<false>>
 #define i_idiv(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::IntDiv>
-#define i_hyp(RECORD, GUARD) Interpolation3<RECORD, GUARD>
+//#define i_lut(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>>
+//#define i_hybrid(RECORD) Interpolation<RECORD, typename IBase<record_bytes>::template Float<true>, IBase<record_bytes>::Recurse, 16>
+//#define i_branch(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<false>>
 #endif
