@@ -23,7 +23,7 @@ template <int record_bytes=8
          ,bool FOR=false
          ,int MIN_EQ_SZ=1
          >
-class LR {
+class BinaryLR {
   using Index = unsigned long;
   using Vector = PaddedVector<record_bytes>;
   using Linear = LinearUnroll<Vector>;
@@ -32,7 +32,7 @@ class LR {
   int lg_v;
 
   public:
-  LR(const Vector& _a) : A(_a) {
+  BinaryLR(const Vector& _a) : A(_a) {
     lg_v=0;
     for (auto n = A.size(); n > MIN_EQ_SZ; n -= (n/2)) lg_v++;
   }
@@ -72,35 +72,12 @@ class LR {
   }
 };
 
-template <int record_bytes=8>
-class b_naive {
-  using Index = unsigned long;
-  using Vector = PaddedVector<record_bytes>;
-
-  const Vector& A;
-
-  public:
-  b_naive(const Vector& _a) : A(_a) {}
-
-  __attribute__((always_inline))
-    Key operator()(const Key x) {
-      Index left = 0L, right = A.size();
-      while (left < right) {
-        Index mid = (left + right)/2;
-        if (A[mid] < x) left = mid;
-        else if (A[mid] > x) right = mid;
-        else return A[mid];
-      }
-      return A[left];
-    }
-};
-
 template <int record_bytes=8
-         ,bool RETURN_EARLY=true
-         ,bool TEST_EQ=true
-         ,bool FOR=false
+         ,bool RETURN_EARLY=false
+         ,bool TEST_EQ=false
+         ,bool FOR=true
          ,bool POW_2=false
-         ,int MIN_EQ_SZ=1
+         ,int MIN_EQ_SZ=32
          ,typename Index = unsigned long
          >
 class Binary {
@@ -170,7 +147,5 @@ class Binary {
       else return A[Linear::reverse(A,guess,x)];
     }
 };
-
-#define b_lin(PAYLOAD) Binary<PAYLOAD, false, false, true, false, 32>
 
 #endif
