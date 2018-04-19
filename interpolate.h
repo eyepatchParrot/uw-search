@@ -34,9 +34,9 @@ public:
   template <bool appx=true>
     struct Float {
       Float(const Vector& a) : A(a),
-      d_range_width(DivLut::Gen(A.back() - A[0]) / (A.size() - 1)),
+      d_range_width(DivLut::Gen(A.back() - A[0]) / ((uint64_t)A.size() - 1)),
       f_aL(A[0]),
-      f_width_range( (double)(A.size() - 1) / (double)(A.back() - A[0])) {}
+      f_width_range( (double)((uint64_t)A.size() - 1) / (double)(A.back() - A[0])) {}
 
       const Vector& A;
       const DivLut::Divisor d_range_width;
@@ -64,7 +64,7 @@ public:
   template <bool t=false, bool appx=false>
   struct Hyp3 {
     Hyp3(const Vector& a) : A(a),
-    d(A.size()>>1
+    d((uint64_t)A.size()>>1
      ), y_1(A[d]
        ), diff_y_01(A[0] - y_1
          ),  a_0(diff_y_01 == (y_1 - A.back()) ? 0.99999999999999 :
@@ -98,7 +98,7 @@ public:
 
   struct IntDiv {
     IntDiv(const Vector& a) : A(a),
-    i_range_width((A.back() - A[0]) / (A.size() - 1)) {}
+    i_range_width((A.back() - A[0]) / ((uint64_t)A.size() - 1)) {}
 
     const Vector& A;
     Key i_range_width;
