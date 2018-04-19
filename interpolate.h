@@ -61,17 +61,21 @@ public:
       }
     };
 
+  template <bool t=false, bool appx=false>
   struct Hyp3 {
-    Hyp3(const Vector& a) : A(a), y_1(A[A.size()>>1]
-        ), diff_y_01(A[0] - y_1
-          ),  a_0(diff_y_01 == (y_1 - A[A.size()-1]) ? 0.99999999999999 :
-            diff_y_01 / (double)(y_1 - A[A.size()-1])
-            ), diff_scale(A[0] - a_0 * A[A.size()-1]
-              ), d(A.size()>>1
-                ), d_a((1.0+a_0) * d)
-    {}
+    Hyp3(const Vector& a) : A(a),
+    d(A.size()>>1
+     ), y_1(A[d]
+       ), diff_y_01(A[0] - y_1
+         ),  a_0(diff_y_01 == (y_1 - A.back()) ? 0.99999999999999 :
+           diff_y_01 / (double)(y_1 - A.back())
+           ), diff_scale(A[0] - a_0 * A.back()
+             ), d_a((1.0+a_0) * d)
+               {}
     const Vector& A;
-    const double y_1, diff_y_01, a_0, diff_scale, d, d_a;
+    const Index d;
+    const Key y_1;
+    const double diff_y_01, a_0, diff_scale, d_a;
     /*
      * def hyp3(points, y_star):
          x, y = zip(*[(x, y - y_star) for x, y in points])
@@ -88,7 +92,7 @@ public:
     }
 
     Index operator()(const Key x) {
-      return d + d_a * (y_1 - x) / (diff_scale - x * (a_0 + 1.0));
+      return d + (Index)(d_a * (y_1 - x) / (diff_scale - x * (a_0 + 1.0))) ;
     }
   };
 
@@ -116,13 +120,13 @@ protected:
   IBase(const Vector& v) : A(v) {}
 };
 
-template <int record_bytes, int guard_off>
+template <int record_bytes, int guard_off,
+         class Interpolate = typename IBase<record_bytes>::template Hyp3<>>
 class i_hyp : public IBase<record_bytes> {
   using Super = IBase<record_bytes>;
   using Vector = typename Super::Vector;
   using typename Super::Index;
   using Super::A;
-  using Interpolate = typename Super::Hyp3;
   using Linear = LinearUnroll<Vector>;
   static constexpr int nIter = Super::Recurse;
   static constexpr bool min_width = false;
@@ -309,9 +313,10 @@ class InterpolationSlope : public IBase<record_bytes> {
 #define i_opt(RECORD, GUARD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Float<>, GUARD>
 #define i_seq(RECORD) InterpolationSlope<RECORD, 1>
 #define i_no_reuse(RECORD, GUARD) Interpolation<RECORD, typename IBase<record_bytes>::template Float<>, IBase<record_bytes>::Recurse, GUARD>
-#define i_no_guard(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>, -1>
+#define i_no_guard(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Float<>, -1>
 #define i_fp(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Float<false>>
 #define i_idiv(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::IntDiv>
+
 //#define i_lut(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<>>
 //#define i_hybrid(RECORD) Interpolation<RECORD, typename IBase<record_bytes>::template Float<true>, IBase<record_bytes>::Recurse, 16>
 //#define i_branch(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse, typename IBase<RECORD>::template Lut<false>>
