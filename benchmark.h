@@ -88,7 +88,9 @@ struct Input : public InputBase {
     auto fal(double shape) {
       std::vector<Key> v(keys.size());
       auto n = v.size();
-      double scale = 1.0 / (pow(n-1, -shape) - pow(n, -shape)); // (n-1)**(-s) - n**(-s)
+      // (n-1)**(-s) - n**(-s)
+      // the .5 is based off of the ratio of sum(A[:n-1]) / A[n] for fal = 2.0
+      double scale = std::min(0.5 * std::numeric_limits<Key>::max() / pow(1, -shape), 1.0 / (pow(n-1, -shape) - pow(n, -shape)));
       // [int((n-i)**(-s) / C) for i in range(n,0,-1)]
       for (auto i = 0; i < v.size(); i++)
         v[i] = pow((double)(n-i), -shape) * scale; 
@@ -103,6 +105,7 @@ struct Input : public InputBase {
 
     void fill(const std::vector<Key>&& v, long seed = 42) {
       keys = std::move(v);
+      permuted_keys.resize(keys.size());
       std::copy(keys.begin(), keys.end(), permuted_keys.begin());
       std::shuffle(permuted_keys.begin(), permuted_keys.end(), std::mt19937(seed));
     }
