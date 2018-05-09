@@ -26,28 +26,28 @@ using SearchFn = int64_t(const Key*, int64_t, Key);
 #define SUBSET_SIZE -1
 #endif
 
-constexpr inline unsigned lg(unsigned x) {
+constexpr inline unsigned ceil_lg(unsigned x) {
   assert(x >= 2); // subtracting and clz < 1 is undefined.
   return 32 - __builtin_clz(x-1);
 }
 
-constexpr inline long lg(uint64_t x) {
+constexpr inline long ceil_lg(uint64_t x) {
   assert(x >= 2);
   return 64 - __builtin_clzl(x);
 }
 
-constexpr inline long lg(__uint128_t x) {
+constexpr inline long ceil_lg(__uint128_t x) {
   uint64_t hi = x >> 64;
   return x < 2 ? 1
-    : hi != 0 ? 64 + lg(hi) : lg((uint64_t)x);
+    : hi != 0 ? 64 + ceil_lg(hi) : ceil_lg((uint64_t)x);
 }
 
-constexpr inline unsigned lg_flr(unsigned x) {
+constexpr inline unsigned flr_lg(unsigned x) {
   assert(x >= 1);
   return 32 - __builtin_clz(x);
 }
 
-constexpr inline int lg_flrl(uint64_t x) {
+constexpr inline int flr_lgl(uint64_t x) {
   assert(x >= 1); // clz < 1 undefined
   return 64 - __builtin_clzl(x);
 }

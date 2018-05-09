@@ -278,7 +278,6 @@ class InterpolationSlope : public IBase<record_bytes> {
       assert(left >= 0); assert(right < A.size());
       next = interpolate(x, next);
 
-      assert(next > -A.get_pad()); assert(next < A.size()+A.get_pad());
       if (nIter == Recurse) { 
         // apply guards
         if (guard_off == -1) next = std::min(std::max(left, next), right);

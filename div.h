@@ -25,7 +25,7 @@ public:
       lg_q(127) {}
     constexpr Gen(u128 p, int lg_q) : p(p), lg_q(lg_q) {}
     Gen operator/(uint64_t n) const {
-      return Gen((p >> lg((u128)n)) * n, lg_q - lg((u128)n));
+      return Gen((p >> ceil_lg((u128)n)) * n, lg_q - ceil_lg((u128)n));
     }
   };
   class Divisor {
@@ -37,7 +37,7 @@ public:
     constexpr Divisor(Numerator d) : // ceiling 2^k/d
       p(1 == d ? (~0) : ((1UL << 63) - 1 + d) / d * 2) { } // k-64 = 0
     constexpr Divisor(Gen g) : p((uint64_t)(
-        lg(g.p) - g.lg_q == 64 ? ~0UL
+        ceil_lg(g.p) - g.lg_q == 64 ? ~0UL
         : g.lg_q < 64 ? g.p << (64 - g.lg_q)
         : g.p >> (g.lg_q - 64))) {}
 
@@ -53,20 +53,5 @@ public:
       return d;
     }
   };
-
-
-
-private:
-  std::array<Divisor, TableSize> t;
-
-public:
-  constexpr DivLut() { for (auto i = 1; i < TableSize; i++) t[i] = i; }
-  Divisor operator[](const Numerator d) const {
-    const Denominator k = lg_flrl(d) - lg_TableSize;
-    auto r = t[d >> k] << k;
-    return d > TableSize? r : t[d];
-  }
-  DivLut& operator<<=(int n) { for (auto& d : t) d = d << n; return *this;}
-  DivLut& operator/=(Numerator n) { for (auto& d : t) d = d / n; return *this;}
 };
 #endif
