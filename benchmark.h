@@ -206,24 +206,28 @@ struct Run {
 
     //std::vector<double> ns( run.n_thds);
     std::vector<double> ns(n_samples * run.n_thds);
-    // TODO allow this to run indefinitely if an appropriate flag is set. Ensure memory is O(1)
+    std::vector<int> subset_indexes(n_samples * run.n_thds);
+    auto rng = std::mt19937(42);
+    for (auto it = subset_indexes.begin(); it != subset_indexes.end(); it += n_samples) {
+      std::iota(it, it+n_samples, 0);
+      if (it != subset_indexes.begin())
+        std::shuffle(it, it+n_samples, rng);
+    }
 
     // TODO break apart by threads
-#pragma omp parallel default(none) num_threads(run.n_thds) shared(queries, run, search, ns)
+#pragma omp parallel default(none) num_threads(run.n_thds) shared(queries, run, search, ns, subset_indexes)
     {
       const int tid = omp_get_thread_num();
       const auto& thread_ns = &ns[tid * n_samples];
       thread_ns[0] = 0.0;
       auto valSum = 0UL;
-      for (int sample_index = 0, query_index = 0;;
-          sample_index++, query_index += sample_size) {
-        if (query_index + sample_size > queries.size()) {
-          if (sample_index == n_samples) {
-            if (!infinite_repeat || valSum != inputC.sum) break;
-            valSum = sample_index = 0;
-          }
-          query_index = 0;
+      for (int sample_index = 0;;
+          sample_index++) {
+        if (sample_index == n_samples) {
+          if (!infinite_repeat || valSum != inputC.sum) break;
+          valSum = sample_index = 0;
         }
+        int query_index = subset_indexes[tid * n_samples + sample_index] * sample_size;
 
         auto t0 = std::chrono::steady_clock::now();
         for (int i = query_index; i < query_index + sample_size; i++) {
