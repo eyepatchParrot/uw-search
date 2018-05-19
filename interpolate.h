@@ -34,12 +34,12 @@ public:
   template <bool appx=true>
     struct Float {
       Float(const Vector& a) : A(a),
-      d_range_width(DivLut::Gen(A.back() - A[0]) / ((uint64_t)A.size() - 1)),
+      slope(FixedPoint::Gen(A.size() - 1) / (A.back() - A[0])),
       f_aL(A[0]),
       f_width_range( (double)((uint64_t)A.size() - 1) / (double)(A.back() - A[0])) {}
 
       const Vector& A;
-      const DivLut::Divisor d_range_width;
+      const FixedPoint slope;
       const double f_aL;
       const double f_width_range;
 
@@ -50,13 +50,13 @@ public:
 
       Index operator()(const Key x, const Index mid) {
         return appx? (x < A[mid] ?
-            mid - (uint64_t)(A[mid] - x) / d_range_width :
-            mid + (uint64_t)(x - A[mid]) / d_range_width) :
+            mid - slope * (uint64_t)(A[mid] - x) :
+            mid + slope * (uint64_t)(x - A[mid])) :
           mid + (Index)(((double)x - (double)A[mid]) * f_width_range);
       }
 
       Index operator()(const Key x) {
-        return appx? (uint64_t)(x-A[0]) / d_range_width :
+        return appx? slope * (uint64_t)(x-A[0]) :
           (Index)(((double)x - f_aL) * f_width_range);
       }
     };
