@@ -91,19 +91,20 @@ private:
   auto fal(double shape) {
     std::vector<Key> v(keys.size());
     auto n = v.size();
-    // (n-1)**(-s) - n**(-s)
-    // the .5 is based off of the ratio of sum(A[:n-1]) / A[n] for fal = 2.0
-    double scale =
-        std::min(0.5 * std::numeric_limits<Key>::max() / pow(1, -shape),
-                 1.0 / (pow(n - 1, -shape) - pow(n, -shape)));
-    // [int((n-i)**(-s) / C) for i in range(n,0,-1)]
-    for (auto i = 0; i < v.size(); i++)
-      v[i] = pow((double)(n - i), -shape) * scale;
+    for (auto i = 0; i < v.size() - 1; i++) {
+      // scale up to ensure elements are distinct for as long as possible
+      v[i] = pow((double)(n - i), -shape) * std::numeric_limits<Key>::max();
+    }
+    v.back() = std::numeric_limits<Key>::max();
     return v;
   }
 
   auto cfal(double shape) {
     auto v = fal(shape);
+    auto max_sum = std::accumulate(v.begin(), v.end(), 0.0L);
+    auto scale = std::numeric_limits<Key>::max() / max_sum;
+    std::transform(v.begin(), v.end(), v.begin(),
+                   [scale](auto x) { return x * scale; });
     std::partial_sum(v.begin(), v.end(), v.begin());
     return v;
   }
