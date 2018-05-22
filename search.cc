@@ -23,11 +23,15 @@ int main(int argc, char *argv[]) {
   std::cout << "run\tn\tdistribution\tparam\tn_thds\talgorithm\trecord\tns\n";
   int run_ix = 0;
   for (auto &run : runs) {
-    for (auto ns : run(*inputs.at(run.input_param)))
+    for (auto ns : run(*inputs.at(run.input_param))) {
+      if (!run.ok) {
+        break;
+      }
       printf("%d\t%ld\t%s\t%s\t%d\t%s\t%d\t%.3f\n", run_ix, run.input_param.n,
              run.input_param.distribution.c_str(),
              run.input_param.param.c_str(), run.n_thds, run.name.c_str(),
              run.input_param.record_bytes, ns);
+    }
     run_ix++;
   }
 }
