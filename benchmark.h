@@ -137,7 +137,8 @@ struct Input : public InputBase {
     } else if (distribution == "cfal") {
       auto shape = parse<double>(param[0]);
       fill(cfal(shape));
-    } else if (distribution == "file") {
+    } else if (std::set<std::string>{"file", "fb", "wiki", "lognormal"
+        }.count(distribution) == 1) {
       std::ifstream file{param[0]};
       fill(std::vector<Key>{std::istream_iterator<Key>{file},
           std::istream_iterator<Key>()});
@@ -315,8 +316,8 @@ InputBase::InputMap InputBase::load(std::vector<Run> runs) {
   InputMap inputs;
   for (auto r : runs) {
     auto input_param = r.input_param;
-    std::cerr << "load " << input_param.n << ' ' << input_param.distribution << ' ' << input_param.param << '\n';
     if (inputs.count(input_param) == 0) {
+      std::cerr << "load " << input_param.n << ' ' << input_param.distribution << ' ' << input_param.param << '\n';
       auto distribution_param = split(input_param.param);
       inputs.emplace((InputParam::Tuple)input_param, [=]() {
           switch (input_param.record_bytes) {
