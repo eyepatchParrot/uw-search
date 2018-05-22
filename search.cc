@@ -22,9 +22,12 @@ int main(int argc, char *argv[]) {
   auto inputs = InputBase::load(runs);
   std::cout << "run\tn\tdistribution\tparam\tn_thds\talgorithm\trecord\tns\n";
   int run_ix = 0;
-  for (auto& run : runs) {
+  for (auto &run : runs) {
     for (auto ns : run(*inputs.at(run.input_param)))
-      printf("%d\t%ld\t%s\t%s\t%d\t%s\t%d\t%.3f\n", run_ix, run.input_param.n, run.input_param.distribution.c_str(), run.input_param.param.c_str(), run.n_thds, run.name.c_str(), run.input_param.record_bytes, ns);
+      printf("%d\t%ld\t%s\t%s\t%d\t%s\t%d\t%.3f\n", run_ix, run.input_param.n,
+             run.input_param.distribution.c_str(),
+             run.input_param.param.c_str(), run.n_thds, run.name.c_str(),
+             run.input_param.record_bytes, ns);
     run_ix++;
   }
 }

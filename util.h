@@ -10,7 +10,7 @@
 #include <fstream>
 
 using Key = int64_t;
-using SearchFn = int64_t(const Key*, int64_t, Key);
+using SearchFn = int64_t(const Key *, int64_t, Key);
 
 #ifdef NDEBUG
 #define ERR(A, args...)
@@ -28,7 +28,7 @@ using SearchFn = int64_t(const Key*, int64_t, Key);
 
 constexpr inline unsigned ceil_lg(unsigned x) {
   assert(x >= 2); // subtracting and clz < 1 is undefined.
-  return 32 - __builtin_clz(x-1);
+  return 32 - __builtin_clz(x - 1);
 }
 
 constexpr inline long ceil_lg(uint64_t x) {
@@ -38,8 +38,7 @@ constexpr inline long ceil_lg(uint64_t x) {
 
 constexpr inline long ceil_lg(__uint128_t x) {
   uint64_t hi = x >> 64;
-  return x < 2 ? 1
-    : hi != 0 ? 64 + ceil_lg(hi) : ceil_lg((uint64_t)x);
+  return x < 2 ? 1 : hi != 0 ? 64 + ceil_lg(hi) : ceil_lg((uint64_t)x);
 }
 
 constexpr inline unsigned flr_lg(unsigned x) {
@@ -52,18 +51,19 @@ constexpr inline int flr_lgl(uint64_t x) {
   return 64 - __builtin_clzl(x);
 }
 
-std::vector<std::string> split(std::string s, char delim=',') {
+std::vector<std::string> split(std::string s, char delim = ',') {
   std::vector<std::string> v;
-	for (auto it = s.begin(); it != s.end();) {
-		auto start = it;
-		it = std::find(it, s.end(), delim);
-		v.emplace_back(start, it);
-		if (it != s.end()) it++;
-	}
+  for (auto it = s.begin(); it != s.end();) {
+    auto start = it;
+    it = std::find(it, s.end(), delim);
+    v.emplace_back(start, it);
+    if (it != s.end())
+      it++;
+  }
   return v;
 }
 
-auto read_line(std::ifstream& f) {
+auto read_line(std::ifstream &f) {
   std::string line;
   std::getline(f, line);
   return line;
