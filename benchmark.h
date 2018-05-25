@@ -146,9 +146,8 @@ public:
     } else if (distribution == "cfal") {
       auto shape = parse<double>(param[0]);
       fill(cfal(shape));
-    } else if (std::set<std::string> {
-                 "file", "fb", "wiki", "lognormal"
-               }.count(distribution) == 1) {
+    } else if (std::set<std::string> { "file", "fb", "wf", "lognormal" }.count(
+                   distribution) == 1) {
       std::ifstream file{ param[0] };
       fill(std::vector<Key>{ std::istream_iterator<Key>{ file },
                              std::istream_iterator<Key>() });
@@ -309,8 +308,6 @@ struct Run {
   //
   auto operator()(const InputBase &input) {
     auto[ n, distribution, param, record_bytes ] = input_param;
-    std::cerr << "run " << n << ' ' << distribution << ' ' << param << ' '
-              << record_bytes << ' ' << name << '\n';
     std::vector<double> ns;
     switch (input_param.record_bytes) {
 #define CASE(N)                                                                \
