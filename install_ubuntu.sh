@@ -6,13 +6,11 @@ rm clang+llvm-5.0.0-linux-x86_64-ubuntu16.04.tar.xz
 sudo apt install -y libomp-dev
 sudo apt-get install -y libc++-dev
 
-#wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh
+wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 
-#chmod +x ./Miniconda2-latest-Linux-x86_64.sh
-#./Miniconda2-latest-Linux-x86_64.sh
+chmod +x ./Miniconda3-latest-Linux-x86_64.sh
+./Miniconda3-latest-Linux-x86_64.sh
+rm Miniconda2-latest-Linux-x86_64.sh
+conda install jupyter scikit-learn numpy matplotlib pandas
 
-
-
-#rm Miniconda2-latest-Linux-x86_64.sh
-
-
+sudo /usr/testbed/bin/mkextrafs /mnt 
