@@ -1,6 +1,9 @@
 #ifndef DIV_H
 #define DIV_H
 
+#include <cstdint>
+#include <assert.h>
+
 class FixedPoint {
   using u128 = __uint128_t;
 
