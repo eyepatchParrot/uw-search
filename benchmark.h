@@ -266,39 +266,48 @@ struct Run {
   template <int record_bytes>
   static auto measure(Run &run, const InputBase &input) {
     using Fn = std::vector<double>(Run &, const InputBase &);
-    static std::unordered_map<std::string, Fn *> fns{
-      { "i-naive", measure2<i_naive<record_bytes>, record_bytes> },
-      { "i-seq", measure2<i_seq<record_bytes>, record_bytes> },
-      { "i-no-guard", measure2<i_no_guard<record_bytes>, record_bytes> },
-      { "i-fp", measure2<i_fp<record_bytes>, record_bytes> },
-      { "i-idiv", measure2<i_idiv<record_bytes>, record_bytes> },
-      { "b-naive", measure2<BinaryLR<record_bytes>, record_bytes> },
-      { "b-lin", measure2<Binary<record_bytes>, record_bytes> },
-      { "i-no-reuse-16", measure2<i_no_reuse<record_bytes, 16>, record_bytes> },
-      { "i-opt-0", measure2<i_opt<record_bytes, 0>, record_bytes> },
-      { "i-opt-8", measure2<i_opt<record_bytes, 8>, record_bytes> },
-      { "i-opt-16", measure2<i_opt<record_bytes, 16>, record_bytes> },
-      { "i-opt-32", measure2<i_opt<record_bytes, 32>, record_bytes> },
-      { "i-opt-64", measure2<i_opt<record_bytes, 64>, record_bytes> },
-      { "i-opt-128", measure2<i_opt<record_bytes, 128>, record_bytes> },
-      { "i-hyp-0", measure2<i_hyp<record_bytes, 0>, record_bytes> },
-      { "i-hyp-8", measure2<i_hyp<record_bytes, 8>, record_bytes> },
-      { "i-hyp-16", measure2<i_hyp<record_bytes, 16>, record_bytes> },
-      { "i-hyp-32", measure2<i_hyp<record_bytes, 32>, record_bytes> },
-      { "i-hyp-64", measure2<i_hyp<record_bytes, 64>, record_bytes> },
-      { "i-hyp-128", measure2<i_hyp<record_bytes, 128>, record_bytes> },
-      { "i-hyp-256", measure2<i_hyp<record_bytes, 256>, record_bytes> },
-      { "i-hyp-512", measure2<i_hyp<record_bytes, 512>, record_bytes> },
-      { "i-hyp-1024", measure2<i_hyp<record_bytes, 1024>, record_bytes> },
+    using fn_tuple = std::tuple<const char *, Fn *>;
+    using std::make_tuple;
+    constexpr auto algorithm_mapper = std::array<fn_tuple, 23>{
+      make_tuple("i-naive", measure2<i_naive<record_bytes>, record_bytes>),
+      make_tuple("i-seq", measure2<i_seq<record_bytes>, record_bytes>),
+      make_tuple("i-no-guard",
+                 measure2<i_no_guard<record_bytes>, record_bytes>),
+      make_tuple("i-fp", measure2<i_fp<record_bytes>, record_bytes>),
+      make_tuple("i-idiv", measure2<i_idiv<record_bytes>, record_bytes>),
+      make_tuple("b-naive", measure2<BinaryLR<record_bytes>, record_bytes>),
+      make_tuple("b-lin", measure2<Binary<record_bytes>, record_bytes>),
+      make_tuple("i-no-reuse-16",
+                 measure2<i_no_reuse<record_bytes, 16>, record_bytes>),
+      make_tuple("i-opt-0", measure2<i_opt<record_bytes, 0>, record_bytes>),
+      make_tuple("i-opt-8", measure2<i_opt<record_bytes, 8>, record_bytes>),
+      make_tuple("i-opt-16", measure2<i_opt<record_bytes, 16>, record_bytes>),
+      make_tuple("i-opt-32", measure2<i_opt<record_bytes, 32>, record_bytes>),
+      make_tuple("i-opt-64", measure2<i_opt<record_bytes, 64>, record_bytes>),
+      make_tuple("i-opt-128", measure2<i_opt<record_bytes, 128>, record_bytes>),
+      make_tuple("i-hyp-0", measure2<i_hyp<record_bytes, 0>, record_bytes>),
+      make_tuple("i-hyp-8", measure2<i_hyp<record_bytes, 8>, record_bytes>),
+      make_tuple("i-hyp-16", measure2<i_hyp<record_bytes, 16>, record_bytes>),
+      make_tuple("i-hyp-32", measure2<i_hyp<record_bytes, 32>, record_bytes>),
+      make_tuple("i-hyp-64", measure2<i_hyp<record_bytes, 64>, record_bytes>),
+      make_tuple("i-hyp-128", measure2<i_hyp<record_bytes, 128>, record_bytes>),
+      make_tuple("i-hyp-256", measure2<i_hyp<record_bytes, 256>, record_bytes>),
+      make_tuple("i-hyp-512", measure2<i_hyp<record_bytes, 512>, record_bytes>),
+      make_tuple("i-hyp-1024",
+                 measure2<i_hyp<record_bytes, 1024>, record_bytes>),
     };
-    auto ns = fns[run.name](run, input);
-    return ns;
+    auto it = std::find_if(algorithm_mapper.begin(), algorithm_mapper.end(),
+                           [run](const auto &x) {
+      return std::string(std::get<const char *>(x)) == run.name;
+    });
+    if (it == fns2.end()) {
+      std::cerr << "algorithm " << run.name << " not found.";
+      assert(!"Algorithm not found");
+      return std::vector<double>();
+    }
+    return std::get<Fn *>(*it)(run, input);
   }
 
-  //  auto measure(const InputBase& input) {
-  //    return fns[this->name](input);
-  //  }
-  //
   auto operator()(const InputBase &input) {
     auto[ n, distribution, param, record_bytes ] = input_param;
     std::vector<double> ns;
