@@ -316,30 +316,29 @@ public:
  * i_fp : use FP division
  * i_idiv : use int division
  */
-#define i_naive(RECORD)                                                        \
-  Interpolation<RECORD, typename IBase<RECORD>::template Float<false>,         \
-                IBase<RECORD>::Recurse, -1>
-#define i_opt(RECORD, GUARD)                                                   \
-  InterpolationSlope<RECORD, IBase<RECORD>::Recurse,                           \
-                     typename IBase<RECORD>::template Float<>, GUARD>
-#define i_seq(RECORD) InterpolationSlope<RECORD, 1>
-#define i_no_reuse(RECORD, GUARD)                                              \
-  Interpolation<RECORD, typename IBase<record_bytes>::template Float<>,        \
-                IBase<record_bytes>::Recurse, GUARD>
-#define i_no_guard(RECORD)                                                     \
-  InterpolationSlope<RECORD, IBase<RECORD>::Recurse,                           \
-                     typename IBase<RECORD>::template Float<>, -1>
-#define i_fp(RECORD)                                                           \
-  InterpolationSlope<RECORD, IBase<RECORD>::Recurse,                           \
-                     typename IBase<RECORD>::template Float<false> >
-#define i_idiv(RECORD)                                                         \
-  InterpolationSlope<RECORD, IBase<RECORD>::Recurse,                           \
-                     typename IBase<RECORD>::IntDiv>
+template <int record_bytes>
+using i_naive =
+    Interpolation<record_bytes,
+                  typename IBase<record_bytes>::template Float<false>,
+                  IBase<record_bytes>::Recurse, -1>;
+template <int RECORD, int GUARD>
+using i_opt =
+    InterpolationSlope<RECORD, IBase<RECORD>::Recurse,
+                       typename IBase<RECORD>::template Float<>, GUARD>;
+template <int RECORD> using i_seq = InterpolationSlope<RECORD, 1>;
+template <int RECORD, int GUARD>
+using i_no_reuse =
+    Interpolation<RECORD, typename IBase<RECORD>::template Float<>,
+                  IBase<RECORD>::Recurse, GUARD>;
+template <int RECORD>
+using i_no_guard =
+    InterpolationSlope<RECORD, IBase<RECORD>::Recurse,
+                       typename IBase<RECORD>::template Float<>, -1>;
+template <int RECORD>
+using i_fp = InterpolationSlope<RECORD, IBase<RECORD>::Recurse,
+                                typename IBase<RECORD>::template Float<false> >;
+template <int RECORD>
+using i_idiv = InterpolationSlope<RECORD, IBase<RECORD>::Recurse,
+                                  typename IBase<RECORD>::IntDiv>;
 
-//#define i_lut(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse,
-//typename IBase<RECORD>::template Lut<>>
-//#define i_hybrid(RECORD) Interpolation<RECORD, typename
-//IBase<record_bytes>::template Float<true>, IBase<record_bytes>::Recurse, 16>
-//#define i_branch(RECORD) InterpolationSlope<RECORD, IBase<RECORD>::Recurse,
-//typename IBase<RECORD>::template Lut<false>>
 #endif
