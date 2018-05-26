@@ -22,15 +22,18 @@ perf :
 	$(CXX) $(CXXFLAGS) $(SOURCES) -o$@ $(LDFLAGS)
 	perf record -F99 -g ./perf i-seq.tsv
 
+ssh : 
+	ssh csl "cd hw/681/ && make release && ./release i-seq.tsv | ./run.py"
+
 clean:
 	rm -f ./release ./debug
 
 ####### Build Targets #########
 
 release : CXXFLAGS += -O3 -DNDEBUG
-release:
+release: $(HEADERS)
 	$(CXX) $(CXXFLAGS) $(SOURCES) -o$@ $(LDFLAGS)
 
 debug : CXXFLAGS += -O0
-debug:
+debug: $(HEADERS)
 	$(CXX) $(CXXFLAGS) $(SOURCES) -o$@ $(LDFLAGS)
