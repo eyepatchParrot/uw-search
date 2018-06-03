@@ -300,7 +300,7 @@ struct Run {
                            [run](const auto &x) {
       return std::string(std::get<const char *>(x)) == run.name;
     });
-    if (it == fns2.end()) {
+    if (it == algorithm_mapper.end()) {
       std::cerr << "algorithm " << run.name << " not found.";
       assert(!"Algorithm not found");
       return std::vector<double>();
