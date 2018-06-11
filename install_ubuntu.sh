@@ -11,7 +11,7 @@ wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
 chmod +x ./Miniconda3-latest-Linux-x86_64.sh
 ./Miniconda3-latest-Linux-x86_64.sh
 rm Miniconda3-latest-Linux-x86_64.sh
-$HOME/miniconda3/conda install jupyter scikit-learn numpy matplotlib pandas
+$HOME/miniconda3/bin/conda install jupyter scikit-learn numpy matplotlib pandas
 
 sudo /usr/testbed/bin/mkextrafs /mnt 
-sudo chown /mnt $(id -u -n)
+sudo chown $(id -u -n) /mnt
