@@ -33,7 +33,7 @@ clean:
 
 %.trace : CXXFLAGS += -DIACA -I$(HOME)/iaca/include
 %.trace : release
-	iaca -trace-cycle-count 50 -trace $@ $<
+	iaca -arch HSW -trace-cycle-count 50 -trace $@ $<
 
 ####### Build Targets #########
 
