@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <limits>
 #include <numeric>
+#include <random>
 #include <vector>
 
 #include <benchmark/benchmark.h>
@@ -168,33 +169,45 @@ public:
   }
 };
 
-template <typename Search, int search_len>
+template <typename Search>
 static void BENCHMARK_search(benchmark::State &state) {
-  PaddedVector v(state.range(0));
+  const int search_len = state.range(0);
+  PaddedVector v(state.range(1));
   std::iota(v.begin(), v.end(), 0);
+
+  std::array<Key, 1024> keys_to_search;
+  std::uniform_int_distribution<int> distribution(0, v.size() - search_len);
+  std::default_random_engine rng(42);
+  auto gen_num = [&distribution, &rng]() { return distribution(rng); };
 
   int i = 0;
   for (auto _ : state) {
-    auto x = Search::forward(&v[0], v.size(), i, i + search_len);
-    benchmark::DoNotOptimize(x);
-    i = (i + 1) % state.range(0);
+    state.PauseTiming();
+    std::generate(keys_to_search.begin(), keys_to_search.end(), gen_num);
+    state.ResumeTiming();
+    for (auto k : keys_to_search) {
+      auto x = Search::forward(&v[0], v.size(), k - search_len, k);
+      benchmark::DoNotOptimize(x);
+    }
   }
 }
 
-BENCHMARK_TEMPLATE(BENCHMARK_search, LinearUnroll<>, 32)
+BENCHMARK_TEMPLATE(BENCHMARK_search, LinearUnroll<>)
     ->RangeMultiplier(4)
-    ->Range(1, 32);
-BENCHMARK_TEMPLATE(BENCHMARK_search, LinearUnroll<1>, 32)
+    ->Ranges({{1, 32}, {4096, 16777216}});
+BENCHMARK_TEMPLATE(BENCHMARK_search, LinearUnroll<1>)
     ->RangeMultiplier(4)
-    ->Range(1, 32);
-BENCHMARK_TEMPLATE(BENCHMARK_search, LinearNoSentinel<>, 32)
+    ->Ranges({{1, 32}, {4096, 16777216}});
+BENCHMARK_TEMPLATE(BENCHMARK_search, LinearNoSentinel<>)
     ->RangeMultiplier(4)
-    ->Range(1, 32);
-BENCHMARK_TEMPLATE(BENCHMARK_search, LinearNoSentinel<1>, 32)
+    ->Ranges({{1, 32}, {4096, 16777216}});
+BENCHMARK_TEMPLATE(BENCHMARK_search, LinearNoSentinel<1>)
     ->RangeMultiplier(4)
-    ->Range(1, 32);
-BENCHMARK_TEMPLATE(BENCHMARK_search, LinearSIMD<>, 32)
+    ->Ranges({{1, 32}, {4096, 16777216}});
+BENCHMARK_TEMPLATE(BENCHMARK_search, LinearSIMD<>)
     ->RangeMultiplier(4)
-    ->Range(1, 32);
-
+    ->Ranges({{1, 32}, {4096, 16777216}});
+BENCHMARK_TEMPLATE(BENCHMARK_search, LinearSIMD<1>)
+    ->RangeMultiplier(4)
+    ->Ranges({{1, 32}, {4096, 16777216}});
 BENCHMARK_MAIN();
