@@ -28,10 +28,12 @@ ssh :
 ssh_d : 
 	ssh csl "cd hw/681/ && make debug"
 
-# TODO add dump back
-
 clean:
 	rm -f ./release ./debug ./dump
+
+%.trace : CXXFLAGS += -DIACA -I$(HOME)/iaca/include
+%.trace : release
+	iaca -trace-cycle-count 50 -trace $@ $<
 
 ####### Build Targets #########
 
@@ -45,3 +47,4 @@ debug: $(SOURCES) $(HEADERS)
 
 dump : dump.cc benchmark.h
 	$(CXX) $(CXXFLAGS) dump.cc -o $@ $(LDFLAGS)
+

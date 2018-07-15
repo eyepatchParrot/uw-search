@@ -244,6 +244,7 @@ struct Run {
 
         auto t0 = std::chrono::steady_clock::now();
         for (int i = query_index; i < query_index + sample_size; i++) {
+          IACA_START
           auto val = search(queries[i]);
           valSum += val;
           assert(val == queries[i]);

@@ -263,9 +263,8 @@ public:
     assert(A.size() >= 1);
     // set bounds and do first interpolation
     Index left = 0, right = A.size() - 1, next = interpolate(x);
-    for (int i = 1; (nIter < 0 ? true : i < nIter); i++) {
-      IACA_START
 
+    for (int i = 1; (nIter < 0 ? true : i < nIter); i++) {
       // update bounds and check for match
       if (A[next] < x)
         left = next + 1;
@@ -273,6 +272,7 @@ public:
         right = next - 1;
       else
         return A[next];
+      IACA_END
       if (left == right)
         return A[left];
 
