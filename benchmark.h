@@ -4,6 +4,7 @@
 #include "interpolate.h"
 #include "bin.h"
 #include "lin.h"
+#include "bin_eyt.h"
 //#include "fib.h"
 
 #include "omp.h"
@@ -278,6 +279,8 @@ struct Run {
       make_tuple("i-idiv", measure2<i_idiv<record_bytes>, record_bytes>),
       make_tuple("b-naive", measure2<BinaryLR<record_bytes>, record_bytes>),
       make_tuple("b-lin", measure2<Binary<record_bytes>, record_bytes>),
+      make_tuple("b-eyt", measure2<b_eyt<record_bytes, false>, record_bytes>),
+      make_tuple("b-eyt-p", measure2<b_eyt<record_bytes, true>, record_bytes>),
       make_tuple("i-no-reuse-16",
                  measure2<i_no_reuse<record_bytes, 16>, record_bytes>),
       make_tuple("i-opt-0", measure2<i_opt<record_bytes, 0>, record_bytes>),

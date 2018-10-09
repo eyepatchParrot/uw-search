@@ -24,7 +24,7 @@ class BinaryLR {
   using Vector = PaddedVector<record_bytes>;
   using Linear = LinearUnroll<Vector>;
 
-  Vector A;
+  const Vector& A;
   int lg_v;
 
 public:
