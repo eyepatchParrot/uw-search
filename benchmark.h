@@ -270,7 +270,7 @@ struct Run {
     using Fn = std::vector<double>(Run &, const InputBase &);
     using fn_tuple = std::tuple<const char *, Fn *>;
     using std::make_tuple;
-    constexpr auto algorithm_mapper = std::array<fn_tuple, 23>{
+    constexpr auto algorithm_mapper = std::array<fn_tuple, 25>{
       make_tuple("i-naive", measure2<i_naive<record_bytes>, record_bytes>),
       make_tuple("i-seq", measure2<i_seq<record_bytes>, record_bytes>),
       make_tuple("i-no-guard",
