@@ -3,7 +3,7 @@ CXX=$(CHOME)/bin/clang++
 CXXFLAGS=-std=c++17 -stdlib=libc++
 LDFLAGS=-fopenmp
 
-HEADERS=benchmark.h bin.h padded_vector.h interpolate.h util.h div.h lin.h bin_eyt.h
+HEADERS=benchmark.h bin.h padded_vector.h interpolate.h util.h div.h lin.h bin_eyt.h adaptivesearch.h
 SOURCES=search.cc
 
 .PHONY: run gdb clean perf

@@ -5,6 +5,7 @@
 #include "bin.h"
 #include "lin.h"
 #include "bin_eyt.h"
+#include "adaptivesearch.h"
 //#include "fib.h"
 
 #include "omp.h"
@@ -270,7 +271,7 @@ struct Run {
     using Fn = std::vector<double>(Run &, const InputBase &);
     using fn_tuple = std::tuple<const char *, Fn *>;
     using std::make_tuple;
-    constexpr auto algorithm_mapper = std::array<fn_tuple, 25>{
+    constexpr auto algorithm_mapper = std::array<fn_tuple, 26>{
       make_tuple("i-naive", measure2<i_naive<record_bytes>, record_bytes>),
       make_tuple("i-seq", measure2<i_seq<record_bytes>, record_bytes>),
       make_tuple("i-no-guard",
@@ -281,6 +282,7 @@ struct Run {
       make_tuple("b-lin", measure2<Binary<record_bytes>, record_bytes>),
       make_tuple("b-eyt", measure2<b_eyt<record_bytes, false>, record_bytes>),
       make_tuple("b-eyt-p", measure2<b_eyt<record_bytes, true>, record_bytes>),
+      make_tuple("adaptivesearch", measure2<adaptivesearch<record_bytes>, record_bytes>),
       make_tuple("i-no-reuse-16",
                  measure2<i_no_reuse<record_bytes, 16>, record_bytes>),
       make_tuple("i-opt-0", measure2<i_opt<record_bytes, 0>, record_bytes>),
