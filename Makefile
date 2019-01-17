@@ -1,6 +1,9 @@
+##### for mac
+# CHOME=/usr/local/opt/llvm/
+# CXX=/usr/local/opt/llvm/bin/clang++
 CHOME=$(HOME)/clang5
 CXX=$(CHOME)/bin/clang++
-CXXFLAGS=-std=c++17 -stdlib=libc++
+CXXFLAGS=-std=c++17 -stdlib=libc++ -lc++abi
 LDFLAGS=-fopenmp
 
 HEADERS=benchmark.h bin.h padded_vector.h interpolate.h util.h div.h lin.h bin_eyt.h adaptivesearch.h

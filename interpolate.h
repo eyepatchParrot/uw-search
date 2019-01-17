@@ -148,22 +148,24 @@ public:
       assert(next_2 >= left);
       assert(next_2 <= right);
       assert(next_1 != next_2);
-      if (next_1 < next_2) {
-        assert(A[next_1] <= x); // f(x) <= f(x') ==> x <= x'
-        left = next_1;
-      } else {
-        assert(A[next_1] >= x); // f(x) >= f(x') ==> x >= x'
-        right = next_1;
-      }
-      if (next_2 + guard_off >= right) {
-        auto r = A[Linear::reverse(A, right, x)];
-        IACA_END
-        return r;
-      } else if (next_2 - guard_off <= left) {
-        auto r = A[Linear::forward(A, left, x)];
-        IACA_END
-        return r;
-      }
+      if (A[next_1] != A[next_2]) {	
+        if (next_1 < next_2) {
+          assert(A[next_1] <= x); // f(x) <= f(x') ==> x <= x'
+          left = next_1;
+        } else {
+          assert(A[next_1] >= x); // f(x) >= f(x') ==> x >= x'
+          right = next_1;
+        }
+        if (next_2 + guard_off >= right) {
+          auto r = A[Linear::reverse(A, right, x)];
+          IACA_END
+          return r;
+        } else if (next_2 - guard_off <= left) {
+          auto r = A[Linear::forward(A, left, x)];
+          IACA_END
+          return r;
+        }
+      }	
       next_1 = next_2;
 
       assert(left < right);
